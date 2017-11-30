@@ -163,7 +163,8 @@ int CppEQ::addTransferFunction(std::vector<double> &tf, uint32_t nfft) {
         return -1;
     }
 
-    double b[nfft+2] = {0.0}, a[nfft+2] = {0.0};
+	std::vector<double> bVec(nfft+2, 0.0), aVec(nfft+2, 0.0);
+    double *b = bVec.data(), *a = aVec.data();
     complex_float64 *bFreq = (complex_float64*) b, *aFreq = (complex_float64*) a;
 
     b[0] = m_b[0];
@@ -179,6 +180,8 @@ int CppEQ::addTransferFunction(std::vector<double> &tf, uint32_t nfft) {
     for (uint32_t i=0; i<nfft/2+1; i++) {
         tf[i]+= 20*std::log10(complex_abs(complex_div(bFreq[i], aFreq[i])));
     }
+
+	return 0;
 }
 
 CppLimiter::CppLimiter(void)
@@ -191,8 +194,8 @@ CppLimiter::CppLimiter(void)
 
 CppLimiter::CppLimiter(double sampleRate, double thres, double makeup, double secRel)
     : m_fs(sampleRate), m_thres(thres), m_makeup(std::pow(10,makeup*0.05)),
-      m_aRel(1.0-1.0/(secRel*sampleRate)), m_lookaheadSamps(0.002*sampleRate),
-      m_holdSamps(0.01*sampleRate), m_memCnt(0), m_holdCnt(m_holdSamps+m_lookaheadSamps),
+      m_aRel(1.0-1.0/(secRel*sampleRate)), m_lookaheadSamps((uint32_t)(0.002*sampleRate)),
+      m_holdSamps((uint32_t)(0.01*sampleRate)), m_memCnt(0), m_holdCnt(m_holdSamps+m_lookaheadSamps),
       m_logAbsSigRel(0), m_logAbsSigSmooth(0), m_compGainLog(0) {
 
     m_mem.resize(m_lookaheadSamps, 0.0);

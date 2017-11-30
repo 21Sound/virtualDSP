@@ -134,7 +134,7 @@ MainWindow::MainWindow(QWidget *parent)
     tfPlot.setBackground(this->palette().background().color());
     xPlot.resize(NFFT/2+1);
     yPlot.resize(NFFT/2+1);
-    for (unsigned int i=0; i<xPlot.size(); i++) {
+    for (int i=0; i<xPlot.size(); i++) {
         xPlot[i] = 20+i*(hiFreq-loFreq)/(NFFT/2.0+1.0);
         yPlot[i] = 0;
     }

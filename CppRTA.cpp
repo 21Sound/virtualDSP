@@ -5,6 +5,7 @@ Author: (c) Hagen Jaeger    January 2017 - Now
 \*----------------------------------------------------------------------------*/
 
 #include <stdexcept>
+#include <sstream>
 #include "CppRTA.h"
 
 CppRTA::CppRTA(deviceContainerRTA inDev, deviceContainerRTA outDev, uint32_t blockLen, uint32_t fs)
@@ -105,7 +106,7 @@ int32_t CppRTA::duplexCallback(const void *inBuf, void *outBuf,
 
     for (uint32_t i = 0; i<obj->blockLen; i++) {
         for (uint32_t j = 0; j<obj->outDev.numChans; j++) {
-            playData[i*obj->outDev.numChans+j] = obj->outData[j][i];
+            playData[i*obj->outDev.numChans+j] = (float) obj->outData[j][i];
         }
     }
     return paContinue;
@@ -115,7 +116,6 @@ int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
                            std::vector<deviceContainerRTA> &outDevices) {
     PaError paErr;
     const PaDeviceInfo *paDevInfo;
-    const PaHostApiInfo *paApiInfo;
     PaDeviceIndex numDevices;
     deviceContainerRTA devInfo;
     const uint32_t maxNameLen = 25;
@@ -130,7 +130,7 @@ int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
         return -2;
     }
 
-    for (uint32_t i=0; i<numDevices; i++) {
+    for (PaDeviceIndex i=0; i<numDevices; i++) {
         paDevInfo = Pa_GetDeviceInfo(i);
 
         devInfo.name = paDevInfo->name;
@@ -160,10 +160,12 @@ int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
     }
 
     Pa_Terminate();
+
+	return 0;
 }
 
 int CppRTA::getTransferFunction(std::vector<double> &tf, uint32_t chanID, uint32_t nfft) {
-    int returnID;
+    int returnID = 0;
     if (chanID>=EQ.at(chanID).size()) {
         return -1;
     }
@@ -174,6 +176,8 @@ int CppRTA::getTransferFunction(std::vector<double> &tf, uint32_t chanID, uint32
     for (uint32_t i=0; i<EQ.at(chanID).size(); i++) {
         returnID += EQ.at(chanID).at(i).addTransferFunction(tf, nfft);
     }
+
+	return 0;
 }
 
 CppRTA::~CppRTA(void) {

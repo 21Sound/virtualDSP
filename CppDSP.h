@@ -119,6 +119,7 @@ public:
             return -1;
         } else {
             m_thres = thres;
+			return 0;
         }
     }
 
@@ -127,6 +128,7 @@ public:
             return -1;
         } else {
             m_makeup = std::pow(10,makeupGainLog*0.05);
+			return 0;
         }
     }
 
@@ -135,6 +137,7 @@ public:
             return -1;
         } else {
             m_aRel = 1.0-1.0/(secRel*m_fs);
+			return 0;
         }
     }
 
@@ -143,8 +146,8 @@ public:
 private:
     std::vector<double> m_mem;
     double m_fs, m_thres, m_makeup, m_aRel, m_logAbsSigRel, m_logAbsSigSmooth, m_compGainLog;
-    uint32_t m_lookaheadSamps, m_holdSamps;
-    int32_t m_memCnt, m_holdCnt;
+	uint32_t m_lookaheadSamps, m_holdSamps, m_memCnt;
+	int32_t m_holdCnt;
 };
 
 #endif // end of include guard
