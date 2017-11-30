@@ -24,12 +24,15 @@ struct deviceContainerRTA {
 class CppRTA {
 
 public:
-    CppRTA();
 
     CppRTA(deviceContainerRTA inDev, deviceContainerRTA outDev, uint32_t blockLen, uint32_t fs);
 
     static int32_t getDevices(std::vector<deviceContainerRTA> &inDevices,
                               std::vector<deviceContainerRTA> &outDevices);
+
+    void startStream();
+
+    void stopStream();
 
     inline int32_t setNumEQs(uint32_t chanID, uint32_t  newSize) {
         if (chanID<EQ.size()) {
@@ -103,6 +106,8 @@ public:
         }
     }
 
+    int getTransferFunction(std::vector<double> &tf, uint32_t chanID, uint32_t nfft);
+
     ~CppRTA(void);
 
 protected:
@@ -115,6 +120,7 @@ protected:
 
 private:
     PaStream *paStream;
+    deviceContainerRTA inDev, outDev;
     std::vector< std::vector<CppEQ> > EQ;
     std::vector< std::vector<double> > inData, outData;
     std::vector<CppLimiter> limiter;

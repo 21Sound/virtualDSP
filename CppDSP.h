@@ -62,6 +62,8 @@ public:
         }
     }
 
+    int addTransferFunction(std::vector<double> &tf, uint32_t nfft);
+
     void process(std::vector<double> &data);
 
 protected:

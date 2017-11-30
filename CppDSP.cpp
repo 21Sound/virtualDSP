@@ -13,6 +13,8 @@ Version 1.0.1 (debuuged and tested, 22.09.2014).
 \*------------------------------------------------------------------*/
 
 #include <algorithm>
+#include "fft.h"
+#include "complex_float64.h"
 #include "CppDSP.h"
 
 #ifndef M_PI
@@ -153,6 +155,29 @@ void CppEQ::process(std::vector<double> &data) {
         m_states[1][0] = tmp;
 
         data[i] = tmp;
+    }
+}
+
+int CppEQ::addTransferFunction(std::vector<double> &tf, uint32_t nfft) {
+    if (ilog2(nfft) == 0){
+        return -1;
+    }
+
+    double b[nfft+2] = {0.0}, a[nfft+2] = {0.0};
+    complex_float64 *bFreq = (complex_float64*) b, *aFreq = (complex_float64*) a;
+
+    b[0] = m_b[0];
+    b[1] = m_b[1];
+    b[2] = m_b[2];
+    a[0] = m_a[0];
+    a[1] = m_a[1];
+    a[2] = m_a[2];
+
+    fft_double(b, (complex_float64*) bFreq, nfft);
+    fft_double(a, (complex_float64*) aFreq, nfft);
+
+    for (uint32_t i=0; i<nfft/2+1; i++) {
+        tf[i]+= 20*std::log10(complex_abs(complex_div(bFreq[i], aFreq[i])));
     }
 }
 

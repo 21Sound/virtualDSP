@@ -7,13 +7,18 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), rtIO(nullptr), actChan(0), actEQ(0) {
     QBrush plotBrush(QColor(150,150,150,150));
+    QFileInfo currentPath(QCoreApplication::applicationFilePath());
+    QSharedPointer<QCPAxisTickerLog> logTicker(new QCPAxisTickerLog);
+    QSharedPointer<QCPAxisTickerText> textTickerFreq(new QCPAxisTickerText);
 
     const unsigned int smallestBlockLen = 64;
     const unsigned int numBlockLengths = 8;
     streamFlag = false;
     blockLenIO = 512;
     fs = 48000;
-    QFileInfo currentPath(QCoreApplication::applicationFilePath());
+    double loFreq = 20;
+    double hiFreq = fs*0.499;
+
 
     /*___________________GUI initialization____________________*/
 
@@ -120,13 +125,17 @@ MainWindow::MainWindow(QWidget *parent)
     tfPlot.addGraph();
     tfPlot.graph(0)->setPen(QColor(50,50,230));
     tfPlot.graph(0)->setBrush(plotBrush);
-    tfPlot.xAxis->setRange(20,fs*0.5);
-    tfPlot.yAxis->setRange(-30,30);
+    tfPlot.xAxis->setScaleType(QCPAxis::stLogarithmic);
+    tfPlot.xAxis->setTicker(logTicker);
+    tfPlot.xAxis->setRange(loFreq,hiFreq);
+    tfPlot.yAxis->setRange(-40,20);
+    tfPlot.xAxis->setLabel("Frequency f [Hz]");
+    tfPlot.yAxis->setLabel("Amplitude A [dBFS]");
     tfPlot.setBackground(this->palette().background().color());
-    xPlot.resize(NFFT*0.5+1);
-    yPlot.resize(NFFT*0.5+1);
+    xPlot.resize(NFFT/2+1);
+    yPlot.resize(NFFT/2+1);
     for (unsigned int i=0; i<xPlot.size(); i++) {
-        xPlot[i] = i;
+        xPlot[i] = 20+i*(hiFreq-loFreq)/(NFFT/2.0+1.0);
         yPlot[i] = 0;
     }
     tfPlot.graph(0)->setData(xPlot, yPlot, true);
@@ -155,6 +164,7 @@ MainWindow::MainWindow(QWidget *parent)
     CppRTA::getDevices(inDevices, outDevices);
     inDevice = inDevices.at(0);
     outDevice = outDevices.at(0);
+    rtIO = new CppRTA(inDevice, outDevice, blockLenIO, fs);
     channelWidget.setLimits(1, outDevice.numChans);
 
     inDeviceMenu = menuBar.addMenu("Set input device");
@@ -203,39 +213,24 @@ void MainWindow::inOutButtonHandle() {
         inOutButton.setIcon(inOutIcon);
         statusTxt.append("\nAudio roundtrip paused.");
         if (rtIO != nullptr) {
-            delete rtIO;
-            rtIO = nullptr;
+            rtIO->stopStream();
         }
     }
     streamFlag = !streamFlag;
 }
 
 void MainWindow::plotUpdate() {
-    /*
-    const int doubleSize = sizeof(double);
-    double tmpVal, *inPlotData = adc->getCurrentDataPtr();
+    if (rtIO != nullptr) {
+        std::vector<double> transferFcn(NFFT/2+1, 0.0);
+        rtIO->getTransferFunction(transferFcn, actChan, NFFT);
 
-    memcpy(yTimeInPlot.data(), inPlotData, blockLenIO*doubleSize);
-    audioInPlot->graph(0)->setData(xTimeInPlot, yTimeInPlot, true);
-    audioInPlot->replot();
-
-    memcpy(tmpFreq.data(), inPlotData, blockLenIO*doubleSize);
-    fft_double(tmpFreq.data(), complexFreqVec.data(), NFFT);
-
-    for (int kk=0; kk<logIdxVector.size(); kk++)
-    {
-        tmpVal = complex_abs(complexFreqVec[logIdxVector[kk]])*fftNormFact;
-        if (tmpVal<0.00001)
-        {
-            tmpVal = 0.00001;
+        for (unsigned int i=0; i<NFFT/2+1; i++) {
+            yPlot[i] = transferFcn[i];
         }
-        tmpVal = 20*log10(tmpVal)+100;
-        yFreqInPlot[kk] = 0.2*tmpVal+0.8*yFreqInPlot[kk];
-    }
 
-    freqInPlot->graph(0)->setData(xFreqInPlot, yFreqInPlot, true);
-    freqInPlot->replot();
-    */
+        tfPlot.graph(0)->setData(xPlot, yPlot, true);
+        tfPlot.replot();
+    }
 }
 
 void MainWindow::blockLenMenuHandle(QAction *currentAction) {
@@ -273,6 +268,7 @@ void MainWindow::channelWidgetHandle(double chanNr) {
         }
         updateLimiterWidgets();
         updateEQWidgets();
+        plotUpdate();
     } else {
         actChan=outDevice.numChans-1;
     }
@@ -289,6 +285,7 @@ void MainWindow::eqNrWidgetHandle(double eqNr) {
         }
     }
     updateEQWidgets();
+    plotUpdate();
     statusTxt.setText(QString("Set EQ nr. of channel ") + QString::number(actChan+1)
                       + QString(" to ") + QString::number(actEQ.at(actChan)+1));
 }
@@ -298,6 +295,7 @@ void MainWindow::eqGainWidgetHandle(double gain) {
     if (rtIO != nullptr) {
         rtIO->setGain(actChan, actEQ.at(actChan), gain);
     }
+    plotUpdate();
     statusTxt.setText(QString("Set EQ ") + QString::number(actEQ.at(actChan)+1) + QString(" of channel ")
                       + QString::number(actChan+1) + QString(" to ") + QString::number(gain)
                       + QString(", ") + QString::number(numEQs.at(actChan)) + QString(" EQs allocated."));
@@ -308,6 +306,7 @@ void MainWindow::eqFreqWidgetHandle(double freq) {
     if (rtIO != nullptr) {
         rtIO->setFreq(actChan, actEQ.at(actChan), freq);
     }
+    plotUpdate();
     statusTxt.setText(QString("Set EQ ") + QString::number(actEQ.at(actChan)+1) + QString(" of channel ")
                       + QString::number(actChan+1) + QString(" to ") + QString::number(freq)
                       + QString(", ") + QString::number(numEQs.at(actChan)) + QString(" EQs allocated."));
@@ -318,6 +317,7 @@ void MainWindow::eqQFactWidgetHandle(double QFact) {
     if (rtIO != nullptr) {
         rtIO->setQFactor(actChan, actEQ.at(actChan), QFact);
     }
+    plotUpdate();
     statusTxt.setText(QString("Set EQ ") + QString::number(actEQ.at(actChan)+1) + QString(" of channel ")
                       + QString::number(actChan+1) + QString(" to ") + QString::number(QFact)
                       + QString(", ") + QString::number(numEQs.at(actChan)) + QString(" EQs allocated."));
@@ -326,8 +326,9 @@ void MainWindow::eqQFactWidgetHandle(double QFact) {
 void MainWindow::eqTypeWidgetHandle(double type) {
     this->type.at(actChan).at(actEQ.at(actChan)) = (unsigned int) type-1;
     if (rtIO != nullptr) {
-        rtIO->setType(actChan, actEQ.at(actChan), type);
+        rtIO->setType(actChan, actEQ.at(actChan), type-1);
     }
+    plotUpdate();
     statusTxt.setText(QString("Set EQ ") + QString::number(actEQ.at(actChan)+1) + QString(" of channel ")
                       + QString::number(actChan+1) + QString(" to ") + QString::number(type)
                       + QString(", ") + QString::number(numEQs.at(actChan)) + QString(" EQs allocated."));
@@ -367,6 +368,7 @@ void MainWindow::resetRtIO() {
     }
     try {
         rtIO = new CppRTA(inDevice, outDevice, blockLenIO, fs);
+        rtIO->startStream();
         for (unsigned int i=0; i<outDevice.numChans; i++) {
             rtIO->setNumEQs(i, numEQs.at(i));
             for (unsigned int j=0; j<numEQs.at(i); j++) {
@@ -475,3 +477,73 @@ MainWindow::~MainWindow(){
         rtIO = nullptr;
     }
 }
+
+/*
+int32_t CppRTA::storeParams() {
+    uint32_t tmpInt;
+    double tmpDouble;
+    std::ofstream fStr("params.vdsp", std::ios::binary | std::ios::trunc);
+
+    if (fStr.good()) {
+        fStr.write((char*)&numOutChans, sizeof(uint32_t));
+        fStr.write((char*)&numEQsPerChan, sizeof(uint32_t));
+        for (uint32_t i=0; i<numOutChans; i++) {
+            for (uint32_t j=0; j<numEQsPerChan; j++) {
+                tmpDouble = EQ.at(i).at(j).getSampleRate();
+                fStr.write((char*)&tmpDouble, sizeof(double));
+                tmpDouble = EQ.at(i).at(j).getGain();
+                fStr.write((char*)&tmpDouble, sizeof(double));
+                tmpDouble = EQ.at(i).at(j).getFreq();
+                fStr.write((char*)&tmpDouble, sizeof(double));
+                tmpDouble = EQ.at(i).at(j).getQFactor();
+                fStr.write((char*)&tmpDouble, sizeof(double));
+                tmpInt = EQ.at(i).at(j).getType();
+                fStr.write((char*)&tmpInt, sizeof(uint32_t));
+            }
+            tmpDouble = limiter.at(i).getThreshold();
+            fStr.write((char*)&tmpDouble, sizeof(double));
+            tmpDouble = limiter.at(i).getMakeupGain();
+            fStr.write((char*)&tmpDouble, sizeof(double));
+            tmpDouble = limiter.at(i).getReleaseTime();
+            fStr.write((char*)&tmpDouble, sizeof(double));
+        }
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+int32_t CppRTA::readParams() {
+    uint32_t tmpInt, numOutChansFile, numEQsPerChanFile;
+    double tmpDouble;
+    std::ifstream fStr("params.vdsp", std::ios::binary);
+
+    if (fStr.good()) {
+        fStr.read((char*)&numOutChansFile, sizeof(uint32_t));
+        fStr.read((char*)&numEQsPerChanFile, sizeof(uint32_t));
+        for (uint32_t i=0; i<numOutChans && i<numOutChansFile; i++) {
+            for (uint32_t j=0; j<numEQsPerChan && j<numEQsPerChanFile; j++) {
+                fStr.read((char*)&tmpDouble, sizeof(double));
+                EQ.at(i).at(j).setSampleRate(tmpDouble);
+                fStr.read((char*)&tmpDouble, sizeof(double));
+                EQ.at(i).at(j).setGain(tmpDouble);
+                fStr.read((char*)&tmpDouble, sizeof(double));
+                EQ.at(i).at(j).setFreq(tmpDouble);
+                fStr.read((char*)&tmpDouble, sizeof(double));
+                EQ.at(i).at(j).setQFactor(tmpDouble);
+                fStr.read((char*)&tmpInt, sizeof(uint32_t));
+                EQ.at(i).at(j).setType(tmpInt);
+            }
+            fStr.read((char*)&tmpDouble, sizeof(double));
+            limiter.at(i).setThreshold(tmpDouble);
+            fStr.read((char*)&tmpDouble, sizeof(double));
+            limiter.at(i).setMakeupGain(tmpDouble);
+            fStr.read((char*)&tmpDouble, sizeof(double));
+            limiter.at(i).setReleaseTime(tmpDouble);
+        }
+        return 0;
+    } else {
+        return -1;
+    }
+}
+*/

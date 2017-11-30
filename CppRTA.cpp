@@ -7,45 +7,39 @@ Author: (c) Hagen Jaeger    January 2017 - Now
 #include <stdexcept>
 #include "CppRTA.h"
 
-CppRTA::CppRTA() :
-    paStream(nullptr), blockLen(0), fs(0), numInChans(0), numOutChans(0) {
-
-}
-
 CppRTA::CppRTA(deviceContainerRTA inDev, deviceContainerRTA outDev, uint32_t blockLen, uint32_t fs)
-    : paStream(nullptr), blockLen(blockLen), fs(fs), numInChans(0), numOutChans(0) {
-    const PaDeviceInfo *inDevInfo, *outDevInfo;
-    PaStreamParameters inParams, outParams;
-    PaError paErr = paNoError;
+    : paStream(nullptr), blockLen(blockLen), fs(fs), inDev(inDev), outDev(outDev) {
 
     if (this->blockLen < 0x20) {
         this->blockLen = 0x20;
     }
 
-    paErr = Pa_Initialize();
-    if(paErr != paNoError) {
-        throw std::runtime_error(std::string(Pa_GetErrorText(paErr)));
-    }
-
-    this->numInChans = inDev.numChans;
-    this->numOutChans = outDev.numChans;
-
-    limiter.resize(numOutChans);
-    EQ.resize(numOutChans);
-    for (uint32_t i=0; i<numOutChans; i++) {
+    limiter.resize(outDev.numChans);
+    EQ.resize(outDev.numChans);
+    for (uint32_t i=0; i<outDev.numChans; i++) {
         limiter.at(i).setSampleRate(fs);
         EQ.at(i).resize(1);
         EQ.at(i).at(0).setSampleRate(fs);
     }
 
-    inData.resize(numInChans);
-    for (uint32_t i=0; i<numInChans; i++) {
+    inData.resize(inDev.numChans);
+    for (uint32_t i=0; i<inDev.numChans; i++) {
         inData.at(i).resize(blockLen, 0.0);
     }
 
-    outData.resize(numOutChans);
-    for (uint32_t i=0; i<numOutChans; i++) {
+    outData.resize(outDev.numChans);
+    for (uint32_t i=0; i<outDev.numChans; i++) {
         outData.at(i).resize(blockLen, 0.0);
+    }
+}
+
+void CppRTA::startStream() {
+    PaStreamParameters inParams, outParams;
+    PaError paErr = paNoError;
+
+    paErr = Pa_Initialize();
+    if (paErr != paNoError) {
+        throw std::invalid_argument(std::string(Pa_GetErrorText(paErr)));
     }
 
     inParams.device = inDev.ID;
@@ -70,7 +64,17 @@ CppRTA::CppRTA(deviceContainerRTA inDev, deviceContainerRTA outDev, uint32_t blo
         throw std::runtime_error(std::string(Pa_GetErrorText(paErr)));
     }
 
-    this->fs = fs;
+}
+
+void CppRTA::stopStream() {
+    if (paStream != nullptr) {
+        if (Pa_IsStreamActive(paStream)>0) {
+            Pa_AbortStream(paStream);
+        }
+        Pa_CloseStream(paStream);
+    }
+
+    Pa_Terminate();
 }
 
 int32_t CppRTA::duplexCallback(const void *inBuf, void *outBuf,
@@ -86,13 +90,13 @@ int32_t CppRTA::duplexCallback(const void *inBuf, void *outBuf,
     float *recData = (float*) inBuf;
 
     for (uint32_t i = 0; i<obj->blockLen; i++) {
-        for (uint32_t j = 0; j<obj->numInChans; j++) {
-            obj->inData[j][i] = recData[i*obj->numInChans+j];
+        for (uint32_t j = 0; j<obj->inDev.numChans; j++) {
+            obj->inData[j][i] = recData[i*obj->inDev.numChans+j];
         }
     }
 
-    for (uint32_t i = 0; i<obj->numOutChans; i++) {
-        obj->outData[i] = obj->inData[i%obj->numInChans];
+    for (uint32_t i = 0; i<obj->outDev.numChans; i++) {
+        obj->outData[i] = obj->inData[i%obj->inDev.numChans];
         for (uint32_t j=0; j<obj->EQ[i].size(); j++) {
             obj->EQ[i][j].process(obj->outData[i]);
         }
@@ -100,8 +104,8 @@ int32_t CppRTA::duplexCallback(const void *inBuf, void *outBuf,
     }
 
     for (uint32_t i = 0; i<obj->blockLen; i++) {
-        for (uint32_t j = 0; j<obj->numOutChans; j++) {
-            playData[i*obj->numOutChans+j] = obj->outData[j][i];
+        for (uint32_t j = 0; j<obj->outDev.numChans; j++) {
+            playData[i*obj->outDev.numChans+j] = obj->outData[j][i];
         }
     }
     return paContinue;
@@ -158,85 +162,22 @@ int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
     Pa_Terminate();
 }
 
-/*
-int32_t CppRTA::storeParams() {
-    uint32_t tmpInt;
-    double tmpDouble;
-    std::ofstream fStr("params.vdsp", std::ios::binary | std::ios::trunc);
-
-    if (fStr.good()) {
-        fStr.write((char*)&numOutChans, sizeof(uint32_t));
-        fStr.write((char*)&numEQsPerChan, sizeof(uint32_t));
-        for (uint32_t i=0; i<numOutChans; i++) {
-            for (uint32_t j=0; j<numEQsPerChan; j++) {
-                tmpDouble = EQ.at(i).at(j).getSampleRate();
-                fStr.write((char*)&tmpDouble, sizeof(double));
-                tmpDouble = EQ.at(i).at(j).getGain();
-                fStr.write((char*)&tmpDouble, sizeof(double));
-                tmpDouble = EQ.at(i).at(j).getFreq();
-                fStr.write((char*)&tmpDouble, sizeof(double));
-                tmpDouble = EQ.at(i).at(j).getQFactor();
-                fStr.write((char*)&tmpDouble, sizeof(double));
-                tmpInt = EQ.at(i).at(j).getType();
-                fStr.write((char*)&tmpInt, sizeof(uint32_t));
-            }
-            tmpDouble = limiter.at(i).getThreshold();
-            fStr.write((char*)&tmpDouble, sizeof(double));
-            tmpDouble = limiter.at(i).getMakeupGain();
-            fStr.write((char*)&tmpDouble, sizeof(double));
-            tmpDouble = limiter.at(i).getReleaseTime();
-            fStr.write((char*)&tmpDouble, sizeof(double));
-        }
-        return 0;
-    } else {
+int CppRTA::getTransferFunction(std::vector<double> &tf, uint32_t chanID, uint32_t nfft) {
+    int returnID;
+    if (chanID>=EQ.at(chanID).size()) {
         return -1;
     }
-}
+    if (tf.size() != nfft/2+1) {
+        tf.resize(nfft/2+1, 0.0);
+    }
 
-int32_t CppRTA::readParams() {
-    uint32_t tmpInt, numOutChansFile, numEQsPerChanFile;
-    double tmpDouble;
-    std::ifstream fStr("params.vdsp", std::ios::binary);
-
-    if (fStr.good()) {
-        fStr.read((char*)&numOutChansFile, sizeof(uint32_t));
-        fStr.read((char*)&numEQsPerChanFile, sizeof(uint32_t));
-        for (uint32_t i=0; i<numOutChans && i<numOutChansFile; i++) {
-            for (uint32_t j=0; j<numEQsPerChan && j<numEQsPerChanFile; j++) {
-                fStr.read((char*)&tmpDouble, sizeof(double));
-                EQ.at(i).at(j).setSampleRate(tmpDouble);
-                fStr.read((char*)&tmpDouble, sizeof(double));
-                EQ.at(i).at(j).setGain(tmpDouble);
-                fStr.read((char*)&tmpDouble, sizeof(double));
-                EQ.at(i).at(j).setFreq(tmpDouble);
-                fStr.read((char*)&tmpDouble, sizeof(double));
-                EQ.at(i).at(j).setQFactor(tmpDouble);
-                fStr.read((char*)&tmpInt, sizeof(uint32_t));
-                EQ.at(i).at(j).setType(tmpInt);
-            }
-            fStr.read((char*)&tmpDouble, sizeof(double));
-            limiter.at(i).setThreshold(tmpDouble);
-            fStr.read((char*)&tmpDouble, sizeof(double));
-            limiter.at(i).setMakeupGain(tmpDouble);
-            fStr.read((char*)&tmpDouble, sizeof(double));
-            limiter.at(i).setReleaseTime(tmpDouble);
-        }
-        return 0;
-    } else {
-        return -1;
+    for (uint32_t i=0; i<EQ.at(chanID).size(); i++) {
+        returnID += EQ.at(chanID).at(i).addTransferFunction(tf, nfft);
     }
 }
-*/
 
 CppRTA::~CppRTA(void) {
-    if (paStream != nullptr) {
-        if (Pa_IsStreamActive(paStream)>0) {
-            Pa_AbortStream(paStream);
-        }
-        Pa_CloseStream(paStream);
-    }
-
-    Pa_Terminate();
+    this->stopStream();
 }
 
 //--------------------- License ------------------------------------------------
