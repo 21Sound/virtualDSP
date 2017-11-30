@@ -4,6 +4,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QLineEdit>
+#include <cmath>
 
 class paramWidget : public QWidget {
     Q_OBJECT
@@ -23,7 +24,7 @@ public:
         } else if (value>upperLim) {
             this->value = upperLim;
         } else {
-            this->value = std::roundf(value*10e5)/10e5;
+            this->value = std::round(value*10e5)/10e5;
         }
         actText = QString::number(this->value) + QString(" ") + QString(unit);
         valueField.setText(actText);
