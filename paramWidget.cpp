@@ -30,12 +30,14 @@ paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double 
     minusButton.move(QPoint(0,20));
     minusButton.resize(QSize(30,30));
     minusButton.setIconSize(QSize(30,30));
+    minusButton.setAutoRepeat(true);
 
     plusButton.setParent(this);
     plusButton.setIcon(plusIcon);
     plusButton.move(QPoint(30,20));
     plusButton.resize(QSize(30,30));
     plusButton.setIconSize(QSize(30,30));
+    plusButton.setAutoRepeat(true);
 
     valueField.setParent(this);
     valueField.setText(QString("0"));

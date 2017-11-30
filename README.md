@@ -33,7 +33,7 @@ Further functionalities that are planned to be implemented:
 
 Dependencies
 -----
-This project depends on Qt5 and portaudio. Please ensure to install the appropriate libraries on a system-known path, so CMake can find them.
+This project depends on Qt5, qcustomplot (Source files included) and portaudio (Win32/64 x86_64 releases included). Please ensure to install the appropriate libraries on a system-known path, so CMake can find them while configuring.
 
 
 If you have any questions, run into bugs, or have feature ideas, please feel free to contact me via email: hagenvontronje1@gmx.de
