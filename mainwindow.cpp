@@ -246,7 +246,7 @@ void MainWindow::inDeviceMenuHandle(QAction *currentAction) {
     if (streamFlag) {
         resetRtIO();
     }
-    statusTxt.setText(QString("Changed input device to ") + QString::fromStdString(outDevice.name));
+    statusTxt.setText(QString("Changed input device to ") + QString::fromStdString(inDevice.name));
 }
 
 void MainWindow::outDeviceMenuHandle(QAction *currentAction) {
