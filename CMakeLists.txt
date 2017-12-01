@@ -142,9 +142,13 @@ if (NOT CMAKE_BUILD_TYPE MATCHES DEBUG)
 		file(COPY ${WINPTHREAD_LIB} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	endif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 	#Copy shared qt bibs with the executable, so that it can run standalone
-	find_library(QWINDOWS qwindows.dll qwindows HINTS "${QT_QMAKE_EXECUTABLE}/../../plugins/platforms"
-	"${Qt5_CoreDLL}/../../share/qt5/plugins/platforms")
-	file(COPY ${QWINDOWS} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/platforms")
+	
+	if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+		find_library(QWINDOWS qwindows.dll qwindows HINTS "${QT_QMAKE_EXECUTABLE}/../../plugins/platforms"
+		"${Qt5_CoreDLL}/../../share/qt5/plugins/platforms")
+		file(COPY ${QWINDOWS} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/platforms")
+	endif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+	
 	file(COPY ${Qt5_CoreDLL} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 	file(COPY ${Qt5_GuiDLL} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	file(COPY ${Qt5_WidgetsDLL} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
