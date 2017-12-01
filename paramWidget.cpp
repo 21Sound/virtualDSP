@@ -3,9 +3,9 @@
 #include <QFileInfo>
 
 paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double lowerLim,
-                         double upperLim, QString label, QString unit)
+                         double upperLim, QString label, QString unit, double precision, bool logFlag)
     : QWidget(parent), value(value), stepSize(stepSize), lowerLim(lowerLim), upperLim(upperLim),
-      unit(unit), actText(value+QString(" ")+unit) {
+      unit(unit), actText(value+QString(" ")+unit), precision(1.0/precision), logFlag(logFlag) {
 
     QPalette tmpPal;
 
@@ -61,14 +61,22 @@ paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double 
 
 void paramWidget::increaseValue() {
     double value = this->value;
-    value+=stepSize;
+    if(logFlag) {
+    	value*=stepSize;
+    } else {
+    	value+=stepSize;
+    }
     this->setValue(value);
     emit valueChanged(this->value);
 }
 
 void paramWidget::decreaseValue() {
     double value = this->value;
-    value-=stepSize;
+    if(logFlag) {
+    	value/=stepSize;
+    } else {
+    	value-=stepSize;
+    }
     this->setValue(value);
     emit valueChanged(this->value);
 }

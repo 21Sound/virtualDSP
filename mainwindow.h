@@ -17,6 +17,7 @@ class MainWindow : public QMainWindow{
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
 private slots:
     void inOutButtonHandle();
     void plotUpdate();
@@ -35,7 +36,6 @@ private slots:
     void limitRelWidgetHandle(double relTime);
 
 private:
-
     void resetRtIO();
     void resetOnDeviceSwitch();
     void resizeChannelParams();

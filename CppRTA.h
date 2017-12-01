@@ -124,7 +124,7 @@ private:
     std::vector< std::vector<CppEQ> > EQ;
     std::vector< std::vector<double> > inData, outData;
     std::vector<CppLimiter> limiter;
-    uint32_t fs, blockLen, numInChans, numOutChans;
+    uint32_t fs, blockLen;
 };
 
 #endif

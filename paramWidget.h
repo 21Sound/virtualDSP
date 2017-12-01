@@ -11,7 +11,8 @@ class paramWidget : public QWidget {
 
 public:
     paramWidget(QWidget *parent = nullptr, double value=0.0, double stepSize=1.0, double lowerLim=-0xFFFF,
-                double upperLim = 0xFFFF, QString label=QString("Label"), QString unit=QString("NV"));
+                double upperLim = 0xFFFF, QString label=QString("Label"), QString unit=QString("NV"),
+				double precision=0.01, bool logFlag=false);
     ~paramWidget();
 
     inline double getValue() {
@@ -24,10 +25,14 @@ public:
         } else if (value>upperLim) {
             this->value = upperLim;
         } else {
-            this->value = std::round(value*10e5)/10e5;
+            this->value = ((float)std::round(value*precision)/precision);
         }
         actText = QString::number(this->value) + QString(" ") + QString(unit);
         valueField.setText(actText);
+    }
+
+    inline void setPrecision(double precision) {
+        this->precision = 1.0/precision;
     }
 
     inline int setStepSize(double stepSize) {
@@ -54,6 +59,10 @@ public:
 
     inline void setReadOnly(bool flag) {
         valueField.setReadOnly(flag);
+    }
+
+    inline void setLogScaling(bool logFlag) {
+        this->logFlag = logFlag;
     }
 
 signals:
@@ -83,7 +92,9 @@ private:
 
     QString unit, actText;
 
-    double value, stepSize, lowerLim, upperLim;
+    double value, stepSize, lowerLim, upperLim, precision;
+
+    bool logFlag;
 };
 
 #endif // MAINWINDOW_H

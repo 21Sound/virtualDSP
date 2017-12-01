@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 #include <stdexcept>
 
-#define NFFT 4096
+#define NFFT 32768
 #define MAX_NUM_EQS_PER_CHAN 20
 
 MainWindow::MainWindow(QWidget *parent)
@@ -75,8 +75,10 @@ MainWindow::MainWindow(QWidget *parent)
     eqFreqWidget.setLabel(QString("EQ Freq"));
     eqFreqWidget.setUnit(QString("Hz"));
     eqFreqWidget.setLimits(20.0, std::min(fs*0.5, 20000.0));
-    eqFreqWidget.setStepSize(1.0);
+    eqFreqWidget.setStepSize(1.01);
     eqFreqWidget.setValue(1000);
+    eqFreqWidget.setPrecision(0.1);
+    eqFreqWidget.setLogScaling(true);
 
     eqQFactWidget.setParent(this);
     eqQFactWidget.move(430,25);
@@ -135,7 +137,7 @@ MainWindow::MainWindow(QWidget *parent)
     xPlot.resize(NFFT/2+1);
     yPlot.resize(NFFT/2+1);
     for (int i=0; i<xPlot.size(); i++) {
-        xPlot[i] = 20+i*(hiFreq-loFreq)/(NFFT/2.0+1.0);
+        xPlot[i] = i*(fs/2)/(NFFT/2.0+1.0);
         yPlot[i] = 0;
     }
     tfPlot.graph(0)->setData(xPlot, yPlot, true);
@@ -278,6 +280,13 @@ void MainWindow::channelWidgetHandle(double chanNr) {
 void MainWindow::eqNrWidgetHandle(double eqNr) {
     actEQ.at(actChan) = (unsigned int) eqNr-1;
     if (actEQ.at(actChan) >= numEQs.at(actChan)) {
+        numEQs.at(actChan) = actEQ.at(actChan)+1;
+        resizeActEQParams();
+        if (rtIO != nullptr) {
+            rtIO->setNumEQs(actChan, numEQs.at(actChan));
+        }
+    } else if ((int32_t)actEQ.at(actChan) < (int32_t)numEQs.at(actChan)-1
+    		&& gain.at(actChan).back() == 0.0 && type.at(actChan).back() > 4) {
         numEQs.at(actChan) = actEQ.at(actChan)+1;
         resizeActEQParams();
         if (rtIO != nullptr) {

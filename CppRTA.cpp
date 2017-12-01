@@ -64,7 +64,6 @@ void CppRTA::startStream() {
     if(paErr != paNoError) {
         throw std::runtime_error(std::string(Pa_GetErrorText(paErr)));
     }
-
 }
 
 void CppRTA::stopStream() {
@@ -166,7 +165,7 @@ int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
 
 int CppRTA::getTransferFunction(std::vector<double> &tf, uint32_t chanID, uint32_t nfft) {
     int returnID = 0;
-    if (chanID>=EQ.at(chanID).size()) {
+    if (chanID>=EQ.size()) {
         return -1;
     }
     if (tf.size() != nfft/2+1) {
