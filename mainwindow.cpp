@@ -1,16 +1,19 @@
+#include <QSizePolicy>
 #include "mainwindow.h"
 #include <stdexcept>
 
-#define NFFT 32768
+#define NFFT 0x4000
 #define MAX_NUM_EQS_PER_CHAN 20
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(int width, int height, QWidget *parent)
     : QMainWindow(parent), rtIO(nullptr), actChan(0), actEQ(0) {
     QBrush plotBrush(QColor(150,150,150,150));
     QFileInfo currentPath(QCoreApplication::applicationFilePath());
     QSharedPointer<QCPAxisTickerLog> logTicker(new QCPAxisTickerLog);
     QSharedPointer<QCPAxisTickerText> textTickerFreq(new QCPAxisTickerText);
 
+    int uiElementWidth = 0.99/7.0*(double)width;
+    int uiElementHeight = 0.99/5.0*(double)height;
     const unsigned int smallestBlockLen = 64;
     const unsigned int numBlockLengths = 8;
     streamFlag = false;
@@ -19,8 +22,9 @@ MainWindow::MainWindow(QWidget *parent)
     double loFreq = 20;
     double hiFreq = fs*0.499;
 
-
     /*___________________GUI initialization____________________*/
+
+    this->resize(width, height);
 
     QString tmpStr = currentPath.absolutePath();
     tmpStr.append("/symbols/logo.png");
@@ -38,123 +42,9 @@ MainWindow::MainWindow(QWidget *parent)
     this->setWindowTitle("virtualDSP");
     this->setAcceptDrops(false);
 
-    inOutButton.setParent(this);
-    inOutButton.setIcon(inOutIcon);
-    inOutButton.move(QPoint(10,30));
-    inOutButton.resize(QSize(60,60));
-    inOutButton.setIconSize(QSize(50,50));
-
-    channelWidget.setParent(this);
-    channelWidget.move(110,25);
-    channelWidget.setLabel(QString("Channel Nr."));
-    channelWidget.setUnit(QString(""));
-    channelWidget.setLimits(1, 1);
-    channelWidget.setStepSize(1.0);
-    channelWidget.setValue(1);
-    channelWidget.setReadOnly(true);
-
-    eqNrWidget.setParent(this);
-    eqNrWidget.move(190,25);
-    eqNrWidget.setLabel(QString("EQ Nr."));
-    eqNrWidget.setUnit(QString(""));
-    eqNrWidget.setLimits(1, MAX_NUM_EQS_PER_CHAN);
-    eqNrWidget.setStepSize(1.0);
-    eqNrWidget.setValue(1);
-    eqNrWidget.setReadOnly(true);
-
-    eqGainWidget.setParent(this);
-    eqGainWidget.move(270,25);
-    eqGainWidget.setLabel(QString("EQ Gain"));
-    eqGainWidget.setUnit(QString("dB"));
-    eqGainWidget.setLimits(-20.0, 20.0);
-    eqGainWidget.setStepSize(0.5);
-    eqGainWidget.setValue(0.0);
-
-    eqFreqWidget.setParent(this);
-    eqFreqWidget.move(350,25);
-    eqFreqWidget.setLabel(QString("EQ Freq"));
-    eqFreqWidget.setUnit(QString("Hz"));
-    eqFreqWidget.setLimits(20.0, std::min(fs*0.5, 20000.0));
-    eqFreqWidget.setStepSize(1.01);
-    eqFreqWidget.setValue(1000);
-    eqFreqWidget.setPrecision(0.1);
-    eqFreqWidget.setLogScaling(true);
-
-    eqQFactWidget.setParent(this);
-    eqQFactWidget.move(430,25);
-    eqQFactWidget.setLabel(QString("EQ QFact"));
-    eqQFactWidget.setUnit(QString("NV"));
-    eqQFactWidget.setLimits(0.1, 10);
-    eqQFactWidget.setStepSize(0.01);
-    eqQFactWidget.setValue(1.0);
-
-    eqTypeWidget.setParent(this);
-    eqTypeWidget.move(510,25);
-    eqTypeWidget.setLabel(QString("EQ Type"));
-    eqTypeWidget.setUnit(QString(""));
-    eqTypeWidget.setLimits(1, 8);
-    eqTypeWidget.setStepSize(1);
-    eqTypeWidget.setValue(6);
-    eqTypeWidget.setReadOnly(true);
-
-    limitThresWidget.setParent(this);
-    limitThresWidget.move(350,105);
-    limitThresWidget.setLabel(QString("Lim. Thres"));
-    limitThresWidget.setUnit(QString("dB"));
-    limitThresWidget.setLimits(-50, 0);
-    limitThresWidget.setStepSize(0.5);
-    limitThresWidget.setValue(0);
-
-    limitMakeupWidget.setParent(this);
-    limitMakeupWidget.move(430,105);
-    limitMakeupWidget.setLabel(QString("Lim. Gain"));
-    limitMakeupWidget.setUnit(QString("dB"));
-    limitMakeupWidget.setLimits(-20.0, 20.0);
-    limitMakeupWidget.setStepSize(0.5);
-    limitMakeupWidget.setValue(0);
-
-    limitRelWidget.setParent(this);
-    limitRelWidget.move(510,105);
-    limitRelWidget.setLabel(QString("Lim. Rel"));
-    limitRelWidget.setUnit(QString("sec"));
-    limitRelWidget.setLimits(0.01, 10.0);
-    limitRelWidget.setStepSize(0.01);
-    limitRelWidget.setValue(2.0);
-
-    tfPlot.setParent(this);
-    tfPlot.move(10,100);
-    tfPlot.resize(QSize(340,180));
-    tfPlot.addGraph();
-    tfPlot.graph(0)->setPen(QColor(50,50,230));
-    tfPlot.graph(0)->setBrush(plotBrush);
-    tfPlot.xAxis->setScaleType(QCPAxis::stLogarithmic);
-    tfPlot.xAxis->setTicker(logTicker);
-    tfPlot.xAxis->setRange(loFreq,hiFreq);
-    tfPlot.yAxis->setRange(-40,20);
-    tfPlot.xAxis->setLabel("Frequency f [Hz]");
-    tfPlot.yAxis->setLabel("Amplitude A [dBFS]");
-    tfPlot.setBackground(this->palette().background().color());
-    xPlot.resize(NFFT/2+1);
-    yPlot.resize(NFFT/2+1);
-    for (int i=0; i<xPlot.size(); i++) {
-        xPlot[i] = i*(fs/2)/(NFFT/2.0+1.0);
-        yPlot[i] = 0;
-    }
-    tfPlot.graph(0)->setData(xPlot, yPlot, true);
-
-    plotTimer.setInterval(50);
-
-    statusTxt.setParent(this);
-    statusTxt.setText(QString("Welcome to virtualDSP!"));
-    statusTxt.move(QPoint(10,290));
-    statusTxt.resize(QSize(340,100));
-    statusTxt.setPalette(this->palette());
-    statusTxt.viewport()->setAutoFillBackground(false);
-    statusTxt.setReadOnly(true);
-
     menuBar.setParent(this);
     menuBar.move(0,0);
-    menuBar.resize(800,20);
+    menuBar.resize(width, 0.05*height);
     menuBar.setPalette(this->palette());
 
     blockLenMenu = menuBar.addMenu("Set block length");
@@ -181,13 +71,133 @@ MainWindow::MainWindow(QWidget *parent)
         outDeviceMenu->actions().at(i)->setData(i);
     }
 
-    resizeChannelParams();
-    resizeAllEQParams();
-    updateLimiterWidgets();
-    updateEQWidgets();
+    inOutButton.setParent(this);
+    inOutButton.move(0.25*uiElementWidth, 0.25*uiElementWidth+0.05*height);
+    inOutButton.resize(0.5*uiElementWidth, 0.5*uiElementHeight);
+    inOutButton.setIconSize(inOutButton.size()*0.99);
+    inOutButton.setIcon(inOutIcon);
+
+    channelWidget.setParent(this);
+    channelWidget.move(1.0*uiElementWidth, 0.05*height);
+    channelWidget.resize(uiElementWidth, uiElementHeight);
+    channelWidget.setLabel(QString("Channel Nr."));
+    channelWidget.setUnit(QString(""));
+    channelWidget.setLimits(1, 1);
+    channelWidget.setStepSize(1.0);
+    channelWidget.setValue(1);
+    channelWidget.setReadOnly(true);
+
+    eqNrWidget.setParent(this);
+    eqNrWidget.move(2.0*uiElementWidth, 0.05*height);
+    eqNrWidget.resize(uiElementWidth, uiElementHeight);
+    eqNrWidget.setLabel(QString("EQ Nr."));
+    eqNrWidget.setUnit(QString(""));
+    eqNrWidget.setLimits(1, MAX_NUM_EQS_PER_CHAN);
+    eqNrWidget.setStepSize(1.0);
+    eqNrWidget.setValue(1);
+    eqNrWidget.setReadOnly(true);
+
+    eqGainWidget.setParent(this);
+    eqGainWidget.move(3.0*uiElementWidth, 0.05*height);
+    eqGainWidget.resize(uiElementWidth, uiElementHeight);
+    eqGainWidget.setLabel(QString("EQ Gain"));
+    eqGainWidget.setUnit(QString("dB"));
+    eqGainWidget.setLimits(-20.0, 20.0);
+    eqGainWidget.setStepSize(0.5);
+    eqGainWidget.setValue(0.0);
+
+    eqFreqWidget.setParent(this);
+    eqFreqWidget.move(4.0*uiElementWidth, 0.05*height);
+    eqFreqWidget.resize(uiElementWidth, uiElementHeight);
+    eqFreqWidget.setLabel(QString("EQ Freq"));
+    eqFreqWidget.setUnit(QString("Hz"));
+    eqFreqWidget.setLimits(20.0, std::min(fs*0.5, 20000.0));
+    eqFreqWidget.setStepSize(1.01);
+    eqFreqWidget.setValue(1000);
+    eqFreqWidget.setPrecision(0.1);
+    eqFreqWidget.setLogScaling(true);
+
+    eqQFactWidget.setParent(this);
+    eqQFactWidget.move(5.0*uiElementWidth, 0.05*height);
+    eqQFactWidget.resize(uiElementWidth, uiElementHeight);
+    eqQFactWidget.setLabel(QString("EQ QFact"));
+    eqQFactWidget.setUnit(QString("NV"));
+    eqQFactWidget.setLimits(0.1, 10);
+    eqQFactWidget.setStepSize(0.01);
+    eqQFactWidget.setValue(1.0);
+
+    eqTypeWidget.setParent(this);
+    eqTypeWidget.move(6.0*uiElementWidth, 0.05*height);
+    eqTypeWidget.resize(uiElementWidth, uiElementHeight);
+    eqTypeWidget.setLabel(QString("EQ Type"));
+    eqTypeWidget.setUnit(QString(""));
+    eqTypeWidget.setLimits(1, 8);
+    eqTypeWidget.setStepSize(1);
+    eqTypeWidget.setValue(6);
+    eqTypeWidget.setReadOnly(true);
+
+    limitThresWidget.setParent(this);
+    limitThresWidget.move(4.0*uiElementWidth, 1.0*uiElementHeight+0.05*height);
+    limitThresWidget.resize(uiElementWidth, uiElementHeight);
+    limitThresWidget.setLabel(QString("Lim. Thres"));
+    limitThresWidget.setUnit(QString("dB"));
+    limitThresWidget.setLimits(-50, 0);
+    limitThresWidget.setStepSize(0.5);
+    limitThresWidget.setValue(0);
+
+    limitMakeupWidget.setParent(this);
+    limitMakeupWidget.move(5.0*uiElementWidth, 1.0*uiElementHeight+0.05*height);
+    limitMakeupWidget.resize(uiElementWidth, uiElementHeight);
+    limitMakeupWidget.setLabel(QString("Lim. Gain"));
+    limitMakeupWidget.setUnit(QString("dB"));
+    limitMakeupWidget.setLimits(-20.0, 20.0);
+    limitMakeupWidget.setStepSize(0.5);
+    limitMakeupWidget.setValue(0);
+
+    limitRelWidget.setParent(this);
+    limitRelWidget.move(6.0*uiElementWidth, 1.0*uiElementHeight+0.05*height);
+    limitRelWidget.resize(uiElementWidth, uiElementHeight);
+    limitRelWidget.setLabel(QString("Lim. Rel"));
+    limitRelWidget.setUnit(QString("sec"));
+    limitRelWidget.setLimits(0.01, 10.0);
+    limitRelWidget.setStepSize(0.01);
+    limitRelWidget.setValue(2.0);
+
+    tfPlot.setParent(this);
+    tfPlot.move(0, 1.0*uiElementHeight+0.05*height);
+    tfPlot.resize(4*uiElementWidth, 2*uiElementHeight);
+    tfPlot.addGraph();
+    tfPlot.graph(0)->setPen(QColor(50,50,230));
+    tfPlot.graph(0)->setBrush(plotBrush);
+    tfPlot.xAxis->setScaleType(QCPAxis::stLogarithmic);
+    tfPlot.xAxis->setTicker(logTicker);
+    tfPlot.xAxis->setRange(loFreq,hiFreq);
+    tfPlot.yAxis->setRange(-40,20);
+    tfPlot.xAxis->setLabel("Frequency f [Hz]");
+    tfPlot.yAxis->setLabel("Amplitude A [dBFS]");
+    tfPlot.setBackground(this->palette().background().color());
+    xPlot.resize(NFFT/2+1);
+    yPlot.resize(NFFT/2+1);
+    for (int i=0; i<xPlot.size(); i++) {
+        xPlot[i] = i*(fs/2)/(NFFT/2.0+1.0);
+        yPlot[i] = 0;
+    }
+    tfPlot.graph(0)->setData(xPlot, yPlot, true);
+
+    statusTxt.setParent(this);
+    statusTxt.move(0.1*uiElementWidth, 3.1*uiElementHeight+0.05*height);
+    statusTxt.resize(3.9*uiElementWidth, 1.53*uiElementHeight);
+    statusTxt.setText(QString("Welcome to virtualDSP!"));
+    statusTxt.setPalette(this->palette());
+    statusTxt.viewport()->setAutoFillBackground(false);
+    statusTxt.setReadOnly(true);
+
+    this->resizeChannelParams();
+    this->resizeAllEQParams();
+    this->updateLimiterWidgets();
+    this->updateEQWidgets();
 
     connect(&inOutButton, SIGNAL (clicked()), this, SLOT(inOutButtonHandle()));
-    connect(&plotTimer, SIGNAL (timeout()), this, SLOT(plotUpdate()));
     connect(&channelWidget, SIGNAL (valueChanged(double)), this, SLOT(channelWidgetHandle(double)));
 
     connect(&eqNrWidget, SIGNAL (valueChanged(double)), this, SLOT(eqNrWidgetHandle(double)));
@@ -268,9 +278,9 @@ void MainWindow::channelWidgetHandle(double chanNr) {
         if (gain.at(actChan).size() < numEQs.at(actChan)) {
             resizeActEQParams();
         }
-        updateLimiterWidgets();
-        updateEQWidgets();
-        plotUpdate();
+        this->updateLimiterWidgets();
+        this->updateEQWidgets();
+        this->plotUpdate();
     } else {
         actChan=outDevice.numChans-1;
     }
@@ -293,8 +303,8 @@ void MainWindow::eqNrWidgetHandle(double eqNr) {
             rtIO->setNumEQs(actChan, numEQs.at(actChan));
         }
     }
-    updateEQWidgets();
-    plotUpdate();
+    this->updateEQWidgets();
+    this->plotUpdate();
     statusTxt.setText(QString("Set EQ nr. of channel ") + QString::number(actChan+1)
                       + QString(" to ") + QString::number(actEQ.at(actChan)+1));
 }
@@ -399,13 +409,13 @@ void MainWindow::resetRtIO() {
 
 void MainWindow::resetOnDeviceSwitch() {
     actChan = 0;
-    resizeChannelParams();
-    resizeAllEQParams();
+    this->resizeChannelParams();
+    this->resizeAllEQParams();
     for(unsigned int i=0; i<outDevice.numChans; i++) {
         actEQ.at(i) = 0;
     }
-    updateLimiterWidgets();
-    updateEQWidgets();
+    this->updateLimiterWidgets();
+    this->updateEQWidgets();
 }
 
 void MainWindow::updateEQWidgets() {
@@ -419,7 +429,7 @@ void MainWindow::updateEQWidgets() {
 
 void MainWindow::updateLimiterWidgets() {
     if (thres.size()!=outDevice.numChans) {
-        resizeChannelParams();
+        this->resizeChannelParams();
     }
     limitThresWidget.setValue(thres.at(actChan));
     limitMakeupWidget.setValue(makeup.at(actChan));

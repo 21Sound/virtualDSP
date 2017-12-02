@@ -4,6 +4,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QLineEdit>
+#include <QGridLayout>
 #include <cmath>
 
 class paramWidget : public QWidget {
@@ -81,6 +82,8 @@ private slots:
 
 private:
     void valueChangeHandle();
+
+    QGridLayout layout;
 
     QPushButton plusButton, minusButton;
 

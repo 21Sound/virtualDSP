@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QTextEdit>
+#include <QGridLayout>
 #include <vector>
 
 #include "qcustomplot.h"
@@ -15,7 +16,7 @@ class MainWindow : public QMainWindow{
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    MainWindow(int width, int height, QWidget *parent = nullptr);
     ~MainWindow();
 
 private slots:
@@ -48,7 +49,6 @@ private:
     QCustomPlot tfPlot;
     QVector<double> xPlot, yPlot;
     QVector<complex_float64> complexFreqVec;
-    QTimer plotTimer;
 
     paramWidget channelWidget, eqNrWidget, eqGainWidget, eqFreqWidget, eqQFactWidget,
                 eqTypeWidget, limitThresWidget, limitMakeupWidget, limitRelWidget;

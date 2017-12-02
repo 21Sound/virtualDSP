@@ -20,33 +20,29 @@ paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double 
     minusIcon.addFile(tmpStr);
 
     fieldLabel.setParent(this);
-    fieldLabel.move(0,0);
-    fieldLabel.resize(60,20);
     fieldLabel.setText("Label");
     fieldLabel.setAlignment(Qt::AlignCenter);
 
     minusButton.setParent(this);
     minusButton.setIcon(minusIcon);
-    minusButton.move(QPoint(0,20));
-    minusButton.resize(QSize(30,30));
-    minusButton.setIconSize(QSize(30,30));
     minusButton.setAutoRepeat(true);
 
     plusButton.setParent(this);
     plusButton.setIcon(plusIcon);
-    plusButton.move(QPoint(30,20));
-    plusButton.resize(QSize(30,30));
-    plusButton.setIconSize(QSize(30,30));
     plusButton.setAutoRepeat(true);
 
     valueField.setParent(this);
     valueField.setText(QString("0"));
-    valueField.move(QPoint(0,50));
-    valueField.resize(QSize(60,20));
     valueField.setPalette(this->palette());
     valueField.setAutoFillBackground(true);
     valueField.setReadOnly(false);
     valueField.setAlignment(Qt::AlignCenter);
+
+    layout.addWidget(&fieldLabel, 0, 0, 1, 2);
+    layout.addWidget(&minusButton, 1, 0, 1, 1);
+    layout.addWidget(&plusButton, 1, 1, 1, 1);
+    layout.addWidget(&valueField, 2, 0, 1, 2);
+    this->setLayout(&layout);
 
     tmpPal = valueField.palette();
     tmpPal.setColor(QPalette::Background, QColor(0,0,0,0));

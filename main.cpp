@@ -18,10 +18,11 @@ Version 1.0.1 (debuuged and tested, 22.09.2014).
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    int width = QApplication::desktop()->screenGeometry().width();
+    int height = QApplication::desktop()->screenGeometry().height();
 
-    MainWindow mainWin;
-    mainWin.setMaximumSize(600,400);
-    mainWin.resize(800,400);
+    MainWindow mainWin(0.5*width, 0.6*height);
+    mainWin.move(width*0.25,height*0.2);
 
     mainWin.show();
 
