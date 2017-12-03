@@ -72,10 +72,16 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     }
 
     inOutButton.setParent(this);
-    inOutButton.move(0.25*uiElementWidth, 0.25*uiElementWidth+0.05*height);
-    inOutButton.resize(0.5*uiElementWidth, 0.5*uiElementHeight);
-    inOutButton.setIconSize(inOutButton.size()*0.99);
+    inOutButton.move(0.25*uiElementWidth, 0.075*uiElementWidth+0.05*height);
+    inOutButton.resize(0.5*uiElementWidth, 0.4*uiElementHeight);
+    inOutButton.setIconSize(inOutButton.size()*0.95);
     inOutButton.setIcon(inOutIcon);
+
+    tenTimesButton.setParent(this);
+    tenTimesButton.move(0.25*uiElementWidth, 0.525*uiElementWidth+0.05*height);
+    tenTimesButton.resize(0.5*uiElementWidth, 0.4*uiElementHeight);
+    tenTimesButton.setCheckable(true);
+    tenTimesButton.setText("10x");
 
     channelWidget.setParent(this);
     channelWidget.move(1.0*uiElementWidth, 0.05*height);
@@ -198,6 +204,7 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     this->updateEQWidgets();
 
     connect(&inOutButton, SIGNAL (clicked()), this, SLOT(inOutButtonHandle()));
+    connect(&tenTimesButton, SIGNAL (clicked()), this, SLOT(tenTimesButtonHandle()));
     connect(&channelWidget, SIGNAL (valueChanged(double)), this, SLOT(channelWidgetHandle(double)));
 
     connect(&eqNrWidget, SIGNAL (valueChanged(double)), this, SLOT(eqNrWidgetHandle(double)));
@@ -229,6 +236,18 @@ void MainWindow::inOutButtonHandle() {
         }
     }
     streamFlag = !streamFlag;
+}
+
+void MainWindow::tenTimesButtonHandle() {
+    if (tenTimesButton.isChecked()) {
+        eqGainWidget.setStepSize(5.0);
+        eqFreqWidget.setStepSize(1.1);
+        eqQFactWidget.setStepSize(0.1);
+    } else {
+        eqGainWidget.setStepSize(0.5);
+        eqFreqWidget.setStepSize(1.01);
+        eqQFactWidget.setStepSize(0.01);
+    }
 }
 
 void MainWindow::plotUpdate() {
@@ -457,7 +476,7 @@ void MainWindow::resizeAllEQParams() {
     for (unsigned int i=0; i<outDevice.numChans; i++) {
         gain.at(i).resize(numEQs.at(i), 0.0);
         freq.at(i).resize(numEQs.at(i), 1000.0);
-        QFact.at(i).resize(numEQs.at(i), 1.0);
+        QFact.at(i).resize(numEQs.at(i), 0.71);
         type.at(i).resize(numEQs.at(i), 5);
     }
 }
@@ -466,7 +485,7 @@ void MainWindow::resizeActEQParams() {
     unsigned int numEQ = numEQs.at(actChan);
     gain.at(actChan).resize(numEQ, 0.0);
     freq.at(actChan).resize(numEQ, 1000.0);
-    QFact.at(actChan).resize(numEQ, 1.0);
+    QFact.at(actChan).resize(numEQ, 0.71);
     type.at(actChan).resize(numEQ, 5);
 }
 

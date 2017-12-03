@@ -22,7 +22,7 @@ Version 1.0.1 (debuuged and tested, 22.09.2014).
 #endif
 
 CppEQ::CppEQ(void)
-    : m_fs(48000.), m_gain(0.0), m_freq(1000.0), m_Q(1.0), m_type(5) {
+    : m_fs(48000.), m_gain(0.0), m_freq(1000.0), m_Q(0.71), m_type(5) {
 
     m_b.resize(3, 0.0);
     m_a.resize(3, 0.0);

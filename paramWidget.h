@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QGridLayout>
+#include <QEvent>
 #include <cmath>
 
 class paramWidget : public QWidget {

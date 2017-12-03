@@ -21,6 +21,7 @@ public:
 
 private slots:
     void inOutButtonHandle();
+    void tenTimesButtonHandle();
     void plotUpdate();
     void blockLenMenuHandle(QAction *currentAction);
     void inDeviceMenuHandle(QAction *currentAction);
@@ -53,7 +54,7 @@ private:
     paramWidget channelWidget, eqNrWidget, eqGainWidget, eqFreqWidget, eqQFactWidget,
                 eqTypeWidget, limitThresWidget, limitMakeupWidget, limitRelWidget;
 
-    QPushButton inOutButton;
+    QPushButton inOutButton, tenTimesButton;
 
     QIcon applicationIcon, inOutIcon, pauseIcon;
 
