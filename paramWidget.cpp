@@ -1,6 +1,7 @@
 #include "paramWidget.h"
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <iostream>
 
 paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double lowerLim,
                          double upperLim, QString label, QString unit, double precision, bool logFlag)
@@ -50,7 +51,8 @@ paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double 
 
     connect(&plusButton, SIGNAL (clicked()), this, SLOT(increaseValue()));
     connect(&minusButton, SIGNAL (clicked()), this, SLOT(decreaseValue()));
-    connect(&valueField, SIGNAL (returnPressed()), this, SLOT(lineEditHandle()));
+    connect(&valueField, SIGNAL (returnPressed()), this, SLOT(lineEditFinishHandle()));
+    connect(&valueField, SIGNAL (textEdited()), this, SLOT(lineEditChangeHandle()));
 
     this->setValue(value);
 }
@@ -77,7 +79,7 @@ void paramWidget::decreaseValue() {
     emit valueChanged(this->value);
 }
 
-void paramWidget::lineEditHandle() {
+void paramWidget::lineEditFinishHandle() {
     bool successFlag;
     double value;
     value = valueField.text().toDouble(&successFlag);
@@ -87,6 +89,10 @@ void paramWidget::lineEditHandle() {
     } else {
         valueField.setText(actText);
     }
+}
+
+void paramWidget::lineEditChangeHandle() {
+	valueField.setText("HuHu");
 }
 
 paramWidget::~paramWidget(){

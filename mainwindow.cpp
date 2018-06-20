@@ -27,7 +27,7 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     this->resize(width, height);
 
     QString tmpStr = currentPath.absolutePath();
-    tmpStr.append("/symbols/logo.png");
+    tmpStr.append("/symbols/logo01.png");
     applicationIcon.addFile(tmpStr);
 
     tmpStr = currentPath.absolutePath();

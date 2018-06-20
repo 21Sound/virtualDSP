@@ -77,7 +77,9 @@ private slots:
 
     void decreaseValue();
 
-    void lineEditHandle();
+    void lineEditFinishHandle();
+
+    void lineEditChangeHandle();
 
     //void setLimiThres(double val);
 
