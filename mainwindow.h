@@ -24,6 +24,7 @@ private slots:
     void tenTimesButtonHandle();
     void plotUpdate();
     void blockLenMenuHandle(QAction *currentAction);
+    void hostApiMenuHandle(QAction *currentAction);
     void inDeviceMenuHandle(QAction *currentAction);
     void outDeviceMenuHandle(QAction *currentAction);
 
@@ -39,13 +40,16 @@ private slots:
 
 private:
     void resetRtIO();
-    void resetOnDeviceSwitch();
+    void paramReset();
     void resizeChannelParams();
     void resizeAllEQParams();
     void resizeActEQParams();
     void updateParams();
     void updateEQWidgets();
     void updateLimiterWidgets();
+    void deviceMenuUpdate();
+    int storeParams();
+    int readParams();
 
     QCustomPlot tfPlot;
     QVector<double> xPlot, yPlot;
@@ -61,13 +65,15 @@ private:
     QTextEdit statusTxt;
 
     QMenuBar menuBar;
-    QMenu *blockLenMenu, *inDeviceMenu, *outDeviceMenu;
+    QMenu *blockLenMenu, *hostApiMenu, *inDeviceMenu, *outDeviceMenu;
 
     CppRTA *rtIO;
     std::vector<unsigned int> actEQ, numEQs;
     std::vector<double> thres, makeup, relTime;
     std::vector< std::vector<double> > gain, freq, QFact, type;
+    std::vector<std::string> hostAPIs;
     std::vector<deviceContainerRTA> inDevices, outDevices;
+    std::string hostAPI;
     deviceContainerRTA inDevice, outDevice;
 
     unsigned int blockLenIO, fs, actChan;

@@ -1,7 +1,39 @@
 #include "paramWidget.h"
 #include <QCoreApplication>
 #include <QFileInfo>
-#include <iostream>
+#include <QWheelEvent>
+
+QParamEdit::QParamEdit(QWidget *parent)
+ : QLineEdit(parent){
+	connect(this, SIGNAL (editingFinished()), this, SLOT(editingFinishedHandle()));
+}
+
+QParamEdit::~QParamEdit(){
+
+}
+
+void QParamEdit::editingFinishedHandle() {
+	this->clearFocus();
+}
+
+void QParamEdit::focusInEvent(QFocusEvent *e){
+  QLineEdit::focusInEvent(e);
+  this->setText(QString());
+}
+
+void QParamEdit::focusOutEvent(QFocusEvent *e)
+{
+  bool successFlag;
+  QString actText = this->text();
+  double value = actText.toDouble(&successFlag);
+
+  if (successFlag) {
+      emit paramChanged(value);
+  } else {
+      this->setText(actText);
+  }
+  QLineEdit::focusOutEvent(e);
+}
 
 paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double lowerLim,
                          double upperLim, QString label, QString unit, double precision, bool logFlag)
@@ -51,10 +83,22 @@ paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double 
 
     connect(&plusButton, SIGNAL (clicked()), this, SLOT(increaseValue()));
     connect(&minusButton, SIGNAL (clicked()), this, SLOT(decreaseValue()));
-    connect(&valueField, SIGNAL (returnPressed()), this, SLOT(lineEditFinishHandle()));
-    connect(&valueField, SIGNAL (textEdited()), this, SLOT(lineEditChangeHandle()));
+    connect(&valueField, SIGNAL (paramChanged(double)), this, SLOT(paramEdited(double)));
+    this->installEventFilter(this);
 
     this->setValue(value);
+}
+
+void paramWidget::setValue(double value) {
+    if (value<lowerLim) {
+        this->value = lowerLim;
+    } else if (value>upperLim) {
+        this->value = upperLim;
+    } else {
+        this->value = ((float)((int)(value*precision))/precision);
+    }
+    actText = QString::number(this->value) + QString(" ") + unit;
+    valueField.setText(actText);
 }
 
 void paramWidget::increaseValue() {
@@ -79,20 +123,24 @@ void paramWidget::decreaseValue() {
     emit valueChanged(this->value);
 }
 
-void paramWidget::lineEditFinishHandle() {
-    bool successFlag;
-    double value;
-    value = valueField.text().toDouble(&successFlag);
-    if (successFlag) {
-        this->setValue(value);
-        emit valueChanged(this->value);
-    } else {
-        valueField.setText(actText);
-    }
+bool paramWidget::eventFilter(QObject *obj, QEvent *event)
+{
+  if (event->type() == QEvent::Wheel)
+  {
+      QWheelEvent *wE = (QWheelEvent *)event;
+      if (wE->delta() > 0) {
+      	this->increaseValue();
+      } else {
+    	this->decreaseValue();
+      }
+  }
+
+  return false;
 }
 
-void paramWidget::lineEditChangeHandle() {
-	valueField.setText("HuHu");
+void paramWidget::paramEdited(double value) {
+	this->setValue(value);
+	emit valueChanged(this->value);
 }
 
 paramWidget::~paramWidget(){

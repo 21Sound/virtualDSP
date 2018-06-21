@@ -47,10 +47,18 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     menuBar.resize(width, 0.05*height);
     menuBar.setPalette(this->palette());
 
-    blockLenMenu = menuBar.addMenu("Set block length");
+    blockLenMenu = menuBar.addMenu("Audio block size");
     for(unsigned int i = 0; i<numBlockLengths; i++) {
         blockLenMenu->addAction(QString::number(smallestBlockLen<<i));
-        blockLenMenu->actions().at(i)->setData(smallestBlockLen<<i);
+        blockLenMenu->actions().back()->setData(smallestBlockLen<<i);
+    }
+
+    CppRTA::getHostAPIs(hostAPIs);
+    hostAPI = hostAPIs.at(0);
+    hostApiMenu = menuBar.addMenu("Host API");
+    for(unsigned int i = 0; i<hostAPIs.size(); i++) {
+    	hostApiMenu->addAction(QString::fromStdString(hostAPIs.at(i)));
+    	hostApiMenu->actions().back()->setData(i);
     }
 
     CppRTA::getDevices(inDevices, outDevices);
@@ -59,17 +67,9 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     rtIO = new CppRTA(inDevice, outDevice, blockLenIO, fs);
     channelWidget.setLimits(1, outDevice.numChans);
 
-    inDeviceMenu = menuBar.addMenu("Set input device");
-    for(unsigned int i = 0; i<inDevices.size(); i++) {
-        inDeviceMenu->addAction(QString::fromStdString(inDevices.at(i).name));
-        inDeviceMenu->actions().at(i)->setData(i);
-    }
-
-    outDeviceMenu = menuBar.addMenu("Set output device");
-    for(unsigned int i = 0; i<outDevices.size(); i++) {
-        outDeviceMenu->addAction(QString::fromStdString(outDevices.at(i).name));
-        outDeviceMenu->actions().at(i)->setData(i);
-    }
+    inDeviceMenu = menuBar.addMenu("Input device");
+    outDeviceMenu = menuBar.addMenu("Output device");;
+    this->deviceMenuUpdate();
 
     inOutButton.setParent(this);
     inOutButton.move(0.25*uiElementWidth, 0.075*uiElementWidth+0.05*height);
@@ -216,9 +216,12 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     connect(&limitRelWidget, SIGNAL (valueChanged(double)), this, SLOT(limitRelWidgetHandle(double)));
     connect(&limitMakeupWidget, SIGNAL (valueChanged(double)), this, SLOT(limitMakeupWidgetHandle(double)));
 
-    connect(blockLenMenu, SIGNAL(triggered(QAction*)), this, SLOT(blockLenMenuHandle(QAction*)));
-    connect(inDeviceMenu, SIGNAL(triggered(QAction*)), this, SLOT(inDeviceMenuHandle(QAction*)));
-    connect(outDeviceMenu, SIGNAL(triggered(QAction*)), this, SLOT(outDeviceMenuHandle(QAction*)));
+    if (blockLenMenu != nullptr && hostApiMenu != nullptr && inDeviceMenu != nullptr && outDeviceMenu != nullptr) {
+		connect(blockLenMenu, SIGNAL(triggered(QAction*)), this, SLOT(blockLenMenuHandle(QAction*)));
+		connect(hostApiMenu, SIGNAL(triggered(QAction*)), this, SLOT(hostApiMenuHandle(QAction*)));
+		connect(inDeviceMenu, SIGNAL(triggered(QAction*)), this, SLOT(inDeviceMenuHandle(QAction*)));
+		connect(outDeviceMenu, SIGNAL(triggered(QAction*)), this, SLOT(outDeviceMenuHandle(QAction*)));
+    }
 }
 
 void MainWindow::inOutButtonHandle() {
@@ -264,6 +267,28 @@ void MainWindow::plotUpdate() {
     }
 }
 
+void MainWindow::deviceMenuUpdate() {
+	if (inDeviceMenu != nullptr) {
+		inDeviceMenu->clear();
+	}
+    for(unsigned int i = 0; i<inDevices.size(); i++) {
+    	if (inDevices.at(i).hostAPI == hostAPI) {
+			inDeviceMenu->addAction(QString::fromStdString(inDevices.at(i).name));
+			inDeviceMenu->actions().back()->setData(i);
+    	}
+    }
+
+    if (outDeviceMenu != nullptr) {
+		outDeviceMenu->clear();
+	}
+    for(unsigned int i = 0; i<outDevices.size(); i++) {
+    	if (inDevices.at(i).hostAPI == hostAPI) {
+			outDeviceMenu->addAction(QString::fromStdString(outDevices.at(i).name));
+			outDeviceMenu->actions().back()->setData(i);
+    	}
+    }
+}
+
 void MainWindow::blockLenMenuHandle(QAction *currentAction) {
     blockLenIO = currentAction->data().toInt();
     if (streamFlag) {
@@ -271,9 +296,15 @@ void MainWindow::blockLenMenuHandle(QAction *currentAction) {
     }
 }
 
+void MainWindow::hostApiMenuHandle(QAction *currentAction) {
+    hostAPI = hostAPIs.at(currentAction->data().toInt());
+    this->deviceMenuUpdate();
+    statusTxt.setText(QString("Changed host API to ") + QString::fromStdString(hostAPI));
+}
+
 void MainWindow::inDeviceMenuHandle(QAction *currentAction) {
     inDevice = inDevices.at(currentAction->data().toInt());
-    resetOnDeviceSwitch();
+    this->paramReset();
     if (streamFlag) {
         resetRtIO();
     }
@@ -284,7 +315,7 @@ void MainWindow::outDeviceMenuHandle(QAction *currentAction) {
     outDevice = outDevices.at(currentAction->data().toInt());
     channelWidget.setLimits(1, outDevice.numChans);
     channelWidget.setValue(1);
-    resetOnDeviceSwitch();
+    this->paramReset();
     if (streamFlag) {
         resetRtIO();
     }
@@ -295,7 +326,7 @@ void MainWindow::channelWidgetHandle(double chanNr) {
     if (actChan<outDevice.numChans) {
         actChan = (unsigned int) chanNr-1;
         if (gain.at(actChan).size() < numEQs.at(actChan)) {
-            resizeActEQParams();
+            this->resizeActEQParams();
         }
         this->updateLimiterWidgets();
         this->updateEQWidgets();
@@ -310,14 +341,14 @@ void MainWindow::eqNrWidgetHandle(double eqNr) {
     actEQ.at(actChan) = (unsigned int) eqNr-1;
     if (actEQ.at(actChan) >= numEQs.at(actChan)) {
         numEQs.at(actChan) = actEQ.at(actChan)+1;
-        resizeActEQParams();
+        this->resizeActEQParams();
         if (rtIO != nullptr) {
             rtIO->setNumEQs(actChan, numEQs.at(actChan));
         }
     } else if ((int32_t)actEQ.at(actChan) < (int32_t)numEQs.at(actChan)-1
     		&& gain.at(actChan).back() == 0.0 && type.at(actChan).back() > 4) {
         numEQs.at(actChan) = actEQ.at(actChan)+1;
-        resizeActEQParams();
+        this->resizeActEQParams();
         if (rtIO != nullptr) {
             rtIO->setNumEQs(actChan, numEQs.at(actChan));
         }
@@ -426,7 +457,7 @@ void MainWindow::resetRtIO() {
     }
 }
 
-void MainWindow::resetOnDeviceSwitch() {
+void MainWindow::paramReset() {
     actChan = 0;
     this->resizeChannelParams();
     this->resizeAllEQParams();
@@ -468,7 +499,7 @@ void MainWindow::resizeChannelParams() {
         freq.resize(outDevice.numChans);
         QFact.resize(outDevice.numChans);
         type.resize(outDevice.numChans);
-        resizeActEQParams();
+        this->resizeActEQParams();
     }
 }
 
@@ -505,6 +536,81 @@ void MainWindow::updateParams() {
     }
 }
 
+
+int MainWindow::storeParams() {
+    uint32_t numChans, numEQsPerChan, tmpInt;
+    double tmpDouble;
+    std::ofstream fStr("params.vdsp", std::ios::binary | std::ios::trunc);
+
+    if (fStr.good()) {
+    	fStr.write((char*)&fs, sizeof(uint32_t));
+    	fStr.write((char*)&outDevice.numChans, sizeof(uint32_t));
+        for (uint32_t i=0; i<outDevice.numChans; i++) {
+        	numEQsPerChan = numEQs.at(actChan);
+        	fStr.write((char*)&numEQs.at(actChan), sizeof(uint32_t));
+            for (uint32_t j=0; j<numEQsPerChan; j++) {
+                tmpDouble = gain.at(i).at(j);
+                fStr.write((char*)&tmpDouble, sizeof(double));
+                tmpDouble = freq.at(i).at(j);
+                fStr.write((char*)&tmpDouble, sizeof(double));
+                tmpDouble = QFact.at(i).at(j);
+                fStr.write((char*)&tmpDouble, sizeof(double));
+                tmpInt = type.at(i).at(j);
+                fStr.write((char*)&tmpInt, sizeof(uint32_t));
+            }
+            tmpDouble = thres.at(i);
+            fStr.write((char*)&tmpDouble, sizeof(double));
+            tmpDouble = makeup.at(i);
+            fStr.write((char*)&tmpDouble, sizeof(double));
+            tmpDouble = relTime.at(i);
+            fStr.write((char*)&tmpDouble, sizeof(double));
+        }
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+int MainWindow::readParams() {
+    uint32_t tmpInt, numOutChansFile, numEQsPerChanFile;
+    double tmpDouble;
+    std::ifstream fStr("params.vdsp", std::ios::binary);
+
+    this->paramReset();
+    if (fStr.good()) {
+        fStr.read((char*)&fs, sizeof(uint32_t));
+        fStr.read((char*)&numOutChansFile, sizeof(uint32_t));
+        for (uint32_t i=0; i<outDevice.numChans && i<numOutChansFile; i++) {
+        	fStr.read((char*)&numEQsPerChanFile, sizeof(uint32_t));
+        	numEQs.at(actChan) = numEQsPerChanFile;
+        	this->resizeActEQParams();
+            for (uint32_t j=0; j<numEQsPerChanFile; j++) {
+                fStr.read((char*)&tmpDouble, sizeof(double));
+                gain.at(i).at(j) = tmpDouble;
+                fStr.read((char*)&tmpDouble, sizeof(double));
+                freq.at(i).at(j) = tmpDouble;
+                fStr.read((char*)&tmpDouble, sizeof(double));
+                QFact.at(i).at(j) = tmpDouble;
+                fStr.read((char*)&tmpInt, sizeof(uint32_t));
+                type.at(i).at(j) = tmpInt;
+            }
+            fStr.read((char*)&tmpDouble, sizeof(double));
+            thres.at(i) = tmpDouble;
+            fStr.read((char*)&tmpDouble, sizeof(double));
+            makeup.at(i) = tmpDouble;
+            fStr.read((char*)&tmpDouble, sizeof(double));
+            relTime.at(i) = tmpDouble;
+        }
+        this->updateParams();
+        this->updateLimiterWidgets();
+		this->updateEQWidgets();
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+
 MainWindow::~MainWindow(){
     if (streamFlag) {
         inOutButtonHandle();
@@ -515,73 +621,3 @@ MainWindow::~MainWindow(){
         rtIO = nullptr;
     }
 }
-
-/*
-int32_t CppRTA::storeParams() {
-    uint32_t tmpInt;
-    double tmpDouble;
-    std::ofstream fStr("params.vdsp", std::ios::binary | std::ios::trunc);
-
-    if (fStr.good()) {
-        fStr.write((char*)&numOutChans, sizeof(uint32_t));
-        fStr.write((char*)&numEQsPerChan, sizeof(uint32_t));
-        for (uint32_t i=0; i<numOutChans; i++) {
-            for (uint32_t j=0; j<numEQsPerChan; j++) {
-                tmpDouble = EQ.at(i).at(j).getSampleRate();
-                fStr.write((char*)&tmpDouble, sizeof(double));
-                tmpDouble = EQ.at(i).at(j).getGain();
-                fStr.write((char*)&tmpDouble, sizeof(double));
-                tmpDouble = EQ.at(i).at(j).getFreq();
-                fStr.write((char*)&tmpDouble, sizeof(double));
-                tmpDouble = EQ.at(i).at(j).getQFactor();
-                fStr.write((char*)&tmpDouble, sizeof(double));
-                tmpInt = EQ.at(i).at(j).getType();
-                fStr.write((char*)&tmpInt, sizeof(uint32_t));
-            }
-            tmpDouble = limiter.at(i).getThreshold();
-            fStr.write((char*)&tmpDouble, sizeof(double));
-            tmpDouble = limiter.at(i).getMakeupGain();
-            fStr.write((char*)&tmpDouble, sizeof(double));
-            tmpDouble = limiter.at(i).getReleaseTime();
-            fStr.write((char*)&tmpDouble, sizeof(double));
-        }
-        return 0;
-    } else {
-        return -1;
-    }
-}
-
-int32_t CppRTA::readParams() {
-    uint32_t tmpInt, numOutChansFile, numEQsPerChanFile;
-    double tmpDouble;
-    std::ifstream fStr("params.vdsp", std::ios::binary);
-
-    if (fStr.good()) {
-        fStr.read((char*)&numOutChansFile, sizeof(uint32_t));
-        fStr.read((char*)&numEQsPerChanFile, sizeof(uint32_t));
-        for (uint32_t i=0; i<numOutChans && i<numOutChansFile; i++) {
-            for (uint32_t j=0; j<numEQsPerChan && j<numEQsPerChanFile; j++) {
-                fStr.read((char*)&tmpDouble, sizeof(double));
-                EQ.at(i).at(j).setSampleRate(tmpDouble);
-                fStr.read((char*)&tmpDouble, sizeof(double));
-                EQ.at(i).at(j).setGain(tmpDouble);
-                fStr.read((char*)&tmpDouble, sizeof(double));
-                EQ.at(i).at(j).setFreq(tmpDouble);
-                fStr.read((char*)&tmpDouble, sizeof(double));
-                EQ.at(i).at(j).setQFactor(tmpDouble);
-                fStr.read((char*)&tmpInt, sizeof(uint32_t));
-                EQ.at(i).at(j).setType(tmpInt);
-            }
-            fStr.read((char*)&tmpDouble, sizeof(double));
-            limiter.at(i).setThreshold(tmpDouble);
-            fStr.read((char*)&tmpDouble, sizeof(double));
-            limiter.at(i).setMakeupGain(tmpDouble);
-            fStr.read((char*)&tmpDouble, sizeof(double));
-            limiter.at(i).setReleaseTime(tmpDouble);
-        }
-        return 0;
-    } else {
-        return -1;
-    }
-}
-*/

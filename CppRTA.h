@@ -27,6 +27,8 @@ public:
 
     CppRTA(deviceContainerRTA inDev, deviceContainerRTA outDev, uint32_t blockLen, uint32_t fs);
 
+    static int32_t getHostAPIs(std::vector<std::string> &apis);
+
     static int32_t getDevices(std::vector<deviceContainerRTA> &inDevices,
                               std::vector<deviceContainerRTA> &outDevices);
 
@@ -118,8 +120,20 @@ protected:
                               PaStreamCallbackFlags iStatusFlags,
                               void *userData);
 
+    static int32_t inCallback(const void *vInputBuffer, void *vOutputBuffer,
+                              unsigned long iFramesPerBuffer,
+                              const PaStreamCallbackTimeInfo* sTimeInfo,
+                              PaStreamCallbackFlags iStatusFlags,
+                              void *userData);
+
+    static int32_t outCallback(const void *vInputBuffer, void *vOutputBuffer,
+                              unsigned long iFramesPerBuffer,
+                              const PaStreamCallbackTimeInfo* sTimeInfo,
+                              PaStreamCallbackFlags iStatusFlags,
+                              void *userData);
+
 private:
-    PaStream *paStream;
+    PaStream *paInStream, *paOutStream, *paDuplexStream;
     deviceContainerRTA inDev, outDev;
     std::vector< std::vector<CppEQ> > EQ;
     std::vector< std::vector<double> > inData, outData;

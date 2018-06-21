@@ -8,6 +8,25 @@
 #include <QEvent>
 #include <cmath>
 
+class QParamEdit : public QLineEdit
+{
+  Q_OBJECT
+
+public:
+  QParamEdit(QWidget *parent = nullptr);
+  ~QParamEdit();
+
+signals:
+  void paramChanged(double);
+
+private slots:
+	void editingFinishedHandle();
+
+protected:
+  virtual void focusInEvent(QFocusEvent *e);
+  virtual void focusOutEvent(QFocusEvent *e);
+};
+
 class paramWidget : public QWidget {
     Q_OBJECT
 
@@ -21,17 +40,7 @@ public:
         return value;
     }
 
-    inline void setValue(double value) {
-        if (value<lowerLim) {
-            this->value = lowerLim;
-        } else if (value>upperLim) {
-            this->value = upperLim;
-        } else {
-            this->value = ((float)std::round(value*precision)/precision);
-        }
-        actText = QString::number(this->value) + QString(" ") + QString(unit);
-        valueField.setText(actText);
-    }
+    void setValue(double value);
 
     inline void setPrecision(double precision) {
         this->precision = 1.0/precision;
@@ -67,21 +76,17 @@ public:
         this->logFlag = logFlag;
     }
 
+    bool eventFilter(QObject *obj, QEvent *event);
+
 signals:
     void valueChanged(double);
-
-    void valueChanged(unsigned int);
 
 private slots:
     void increaseValue();
 
     void decreaseValue();
 
-    void lineEditFinishHandle();
-
-    void lineEditChangeHandle();
-
-    //void setLimiThres(double val);
+    void paramEdited(double);
 
 private:
     void valueChangeHandle();
@@ -94,7 +99,7 @@ private:
 
     QLabel fieldLabel;
 
-    QLineEdit valueField;
+    QParamEdit valueField;
 
     QString unit, actText;
 

@@ -62,6 +62,11 @@ public:
         }
     }
 
+    double gain() const { return m_gain; }
+    double freq() const { return m_freq; }
+    double QFact() const { return m_Q; }
+    uint32_t type() const { return 	m_type; }
+
     int addTransferFunction(std::vector<double> &tf, uint32_t nfft);
 
     void process(std::vector<double> &data);
@@ -140,6 +145,10 @@ public:
 			return 0;
         }
     }
+
+    double thres() const { return m_thres; }
+    double makeup() const { return m_makeup; }
+    double releaseTime() const { return 1.0/((1.0-m_aRel)*m_fs); }
 
     void process(std::vector<double> &data);
 

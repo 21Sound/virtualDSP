@@ -7,9 +7,11 @@ Author: (c) Hagen Jaeger    January 2017 - Now
 #include <stdexcept>
 #include <sstream>
 #include "CppRTA.h"
+#include <iostream>
 
 CppRTA::CppRTA(deviceContainerRTA inDev, deviceContainerRTA outDev, uint32_t blockLen, uint32_t fs)
-    : paStream(nullptr), blockLen(blockLen), fs(fs), inDev(inDev), outDev(outDev) {
+    : paInStream(nullptr), paOutStream(nullptr), paDuplexStream(nullptr), blockLen(blockLen), fs(fs),
+	  inDev(inDev), outDev(outDev) {
 
     if (this->blockLen < 0x20) {
         this->blockLen = 0x20;
@@ -55,23 +57,51 @@ void CppRTA::startStream() {
     outParams.suggestedLatency = outDev.latency;
     outParams.hostApiSpecificStreamInfo = NULL;
 
-    paErr = Pa_OpenStream(&paStream, &inParams, &outParams, fs, blockLen, paNoFlag, duplexCallback, this);
+    paErr = Pa_OpenStream(&paDuplexStream, &inParams, &outParams, fs, blockLen, paNoFlag, duplexCallback, this);
     if(paErr != paNoError) {
-        throw std::invalid_argument(std::string(Pa_GetErrorText(paErr)));
+    	paErr = Pa_OpenStream(&paInStream, &inParams, nullptr, fs, blockLen, paNoFlag, inCallback, this);
+    	if(paErr != paNoError) {
+    		throw std::invalid_argument(std::string(Pa_GetErrorText(paErr)));
+    	}
+        paErr = Pa_OpenStream(&paOutStream, nullptr, &outParams, fs, blockLen, paNoFlag, outCallback, this);
+    	if(paErr != paNoError) {
+    		throw std::invalid_argument(std::string(Pa_GetErrorText(paErr)));
+    	}
     }
 
-    paErr = Pa_StartStream(paStream);
+    paErr = Pa_StartStream(paDuplexStream);
     if(paErr != paNoError) {
-        throw std::runtime_error(std::string(Pa_GetErrorText(paErr)));
+    	paErr = Pa_StartStream(paInStream);
+    	if(paErr != paNoError) {
+			throw std::invalid_argument(std::string(Pa_GetErrorText(paErr)));
+		}
+    	paErr = Pa_StartStream(paOutStream);
+    	if(paErr != paNoError) {
+			throw std::invalid_argument(std::string(Pa_GetErrorText(paErr)));
+		}
     }
 }
 
 void CppRTA::stopStream() {
-    if (paStream != nullptr) {
-        if (Pa_IsStreamActive(paStream)>0) {
-            Pa_AbortStream(paStream);
+    if (paDuplexStream != nullptr) {
+        if (Pa_IsStreamActive(paDuplexStream)>0) {
+            Pa_AbortStream(paDuplexStream);
         }
-        Pa_CloseStream(paStream);
+        Pa_CloseStream(paDuplexStream);
+    }
+
+    if (paInStream != nullptr) {
+        if (Pa_IsStreamActive(paInStream)>0) {
+            Pa_AbortStream(paInStream);
+        }
+        Pa_CloseStream(paInStream);
+    }
+
+    if (paOutStream != nullptr) {
+        if (Pa_IsStreamActive(paOutStream)>0) {
+            Pa_AbortStream(paOutStream);
+        }
+        Pa_CloseStream(paOutStream);
     }
 
     Pa_Terminate();
@@ -111,13 +141,85 @@ int32_t CppRTA::duplexCallback(const void *inBuf, void *outBuf,
     return paContinue;
 }
 
+int32_t CppRTA::inCallback(const void *inBuf, void *outBuf,
+                           unsigned long framesPerBuf,
+                           const PaStreamCallbackTimeInfo* timeInfo,
+                           PaStreamCallbackFlags statusFlag,
+                           void *userData)
+{
+    (void) timeInfo; (void) statusFlag; (void) outBuf;
+
+    CppRTA* obj = (CppRTA*) userData;
+    float *recData = (float*) inBuf;
+
+    for (uint32_t i = 0; i<obj->blockLen; i++) {
+        for (uint32_t j = 0; j<obj->inDev.numChans; j++) {
+            obj->inData[j][i] = recData[i*obj->inDev.numChans+j];
+        }
+    }
+    return paContinue;
+}
+
+int32_t CppRTA::outCallback(const void *inBuf, void *outBuf,
+                           unsigned long framesPerBuf,
+                           const PaStreamCallbackTimeInfo* timeInfo,
+                           PaStreamCallbackFlags statusFlag,
+                           void *userData)
+{
+    (void) timeInfo; (void) statusFlag; (void) inBuf;
+
+    CppRTA* obj = (CppRTA*) userData;
+    float *playData = (float*) outBuf;
+
+    for (uint32_t i = 0; i<obj->outDev.numChans; i++) {
+        obj->outData[i] = obj->inData[i%obj->inDev.numChans];
+        for (uint32_t j=0; j<obj->EQ[i].size(); j++) {
+            obj->EQ[i][j].process(obj->outData[i]);
+        }
+        obj->limiter[i].process(obj->outData[i]);
+    }
+
+    for (uint32_t i = 0; i<obj->blockLen; i++) {
+        for (uint32_t j = 0; j<obj->outDev.numChans; j++) {
+            playData[i*obj->outDev.numChans+j] = (float) obj->outData[j][i];
+        }
+    }
+    return paContinue;
+}
+
+int32_t CppRTA::getHostAPIs(std::vector<std::string> &apis) {
+    PaError paErr;
+    const PaDeviceInfo *paDevInfo;
+    PaDeviceIndex numDevices;
+    PaHostApiIndex numAPIs;
+
+    paErr = Pa_Initialize();
+    if (paErr != paNoError) {
+        return -1;
+    }
+
+    numDevices = Pa_GetDeviceCount();
+    if (Pa_GetHostApiCount() < 1) {
+        return -2;
+    }
+
+    numAPIs = Pa_GetHostApiCount();
+    for (PaHostApiIndex i=0; i<numAPIs; i++) {
+        apis.push_back(std::string(Pa_GetHostApiInfo(i)->name));
+    }
+
+    Pa_Terminate();
+
+	return 0;
+}
+
 int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
                            std::vector<deviceContainerRTA> &outDevices) {
     PaError paErr;
     const PaDeviceInfo *paDevInfo;
     PaDeviceIndex numDevices;
     deviceContainerRTA devInfo;
-    const uint32_t maxNameLen = 25;
+    const uint32_t maxNameLen = 50;
 
     paErr = Pa_Initialize();
     if (paErr != paNoError) {
@@ -143,8 +245,8 @@ int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
             devInfo.numChans = paDevInfo->maxInputChannels;
             devInfo.latency = paDevInfo->defaultLowInputLatency;
             devInfo.inputFlag = true;
-            devInfo.name = devInfo.hostAPI + std::string("  |  ") + devInfo.name + std::string("  |  ")
-                    + std::to_string(devInfo.numChans) + std::string(" channels");
+            devInfo.name = std::string("(") + std::to_string(devInfo.ID) + std::string(") ") + devInfo.name
+            		+ std::string("  |  ") + std::to_string(devInfo.numChans) + std::string(" channels");
             inDevices.push_back(devInfo);
         }
 
@@ -152,8 +254,8 @@ int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
             devInfo.numChans = paDevInfo->maxOutputChannels;
              devInfo.latency = paDevInfo->defaultLowOutputLatency;
             devInfo.inputFlag = false;
-            devInfo.name = devInfo.hostAPI + std::string("  |  ") + devInfo.name + std::string("  |  ")
-                    + std::to_string(devInfo.numChans) + std::string(" channels");
+            devInfo.name = std::string("(") + std::to_string(devInfo.ID) + std::string(") ") + devInfo.name
+            		+ std::string("  |  ") + std::to_string(devInfo.numChans) + std::string(" channels");
             outDevices.push_back(devInfo);
         }
     }
