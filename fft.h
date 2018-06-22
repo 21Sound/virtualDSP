@@ -33,15 +33,15 @@ Example:
 #include "complex_float32.h"
 #include "complex_float64.h"
 
-void fft(float *input, complex_float32 *spectrum, int nfft);
-void ifft(complex_float32 *spectrum, float *output, int nfft);
+int fft(float *input, complex_float32 *spectrum, int nfft);
+int ifft(complex_float32 *spectrum, float *output, int nfft);
 void magnitude(complex_float32 *input, float *result, int n);
 void magnitude_db(complex_float32 *input, float *result, int n);
 void phase_rad(complex_float32 *input, float *result, int n);
 
-void set_twiddle_table(int max_nfft);
-void fft_double(double *input, complex_float64 *spectrum, int n);
-void ifft_double(complex_float64 *spectrum, double *output, int n);
+int set_twiddle_table(int max_nfft);
+int fft_double(double *input, complex_float64 *spectrum, int n);
+int ifft_double(complex_float64 *spectrum, double *output, int n);
 void magnitude_double(complex_float64 *input, double *result, int n);
 void magnitude_db_double(complex_float64 *input, double *result, int n);
 void phase_rad_double(complex_float64 *input, double *result, int n);

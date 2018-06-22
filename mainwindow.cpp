@@ -3,12 +3,12 @@
 #include <stdexcept>
 
 #define NFFT 0x4000
-#define MAX_NUM_EQS_PER_CHAN 20
+#define MAX_NUM_EQS_PER_CHAN 10
 
 MainWindow::MainWindow(int width, int height, QWidget *parent)
-    : QMainWindow(parent), rtIO(nullptr), actChan(0), actEQ(0) {
+    : QMainWindow(parent), rtIO(nullptr), actChan(0), actEQ(0), tenTimesFlag(false), stereoLockFlag(false),
+	  settingsMenu(nullptr), blockLenMenu(nullptr), hostApiMenu(nullptr), inDeviceMenu(nullptr), outDeviceMenu(nullptr), copyMenu(nullptr) {
     QBrush plotBrush(QColor(150,150,150,150));
-    QFileInfo currentPath(QCoreApplication::applicationFilePath());
     QSharedPointer<QCPAxisTickerLog> logTicker(new QCPAxisTickerLog);
     QSharedPointer<QCPAxisTickerText> textTickerFreq(new QCPAxisTickerText);
 
@@ -18,7 +18,7 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     const unsigned int numBlockLengths = 8;
     streamFlag = false;
     blockLenIO = 512;
-    fs = 48000;
+    fs = 44100;
     double loFreq = 20;
     double hiFreq = fs*0.499;
 
@@ -26,15 +26,15 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
 
     this->resize(width, height);
 
-    QString tmpStr = currentPath.absolutePath();
+    QString tmpStr = QCoreApplication::applicationDirPath();
     tmpStr.append("/symbols/logo01.png");
     applicationIcon.addFile(tmpStr);
 
-    tmpStr = currentPath.absolutePath();
+    tmpStr = QCoreApplication::applicationDirPath();
     tmpStr.append("/symbols/InOut.png");
     inOutIcon.addFile(tmpStr);
 
-    tmpStr = currentPath.absolutePath();
+    tmpStr = QCoreApplication::applicationDirPath();
     tmpStr.append("/symbols/pause.png");
     pauseIcon.addFile(tmpStr);
 
@@ -46,6 +46,18 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     menuBar.move(0,0);
     menuBar.resize(width, 0.05*height);
     menuBar.setPalette(this->palette());
+
+    settingsMenu = menuBar.addMenu("Settings");
+    settingsMenu->addAction(QString("Stereo lock (inactive)"));
+    settingsMenu->actions().back()->setData(0);
+    settingsMenu->addAction(QString("Ten fold step size (inactive)"));
+	settingsMenu->actions().back()->setData(1);
+    settingsMenu->addAction(QString("Store setting"));
+    settingsMenu->actions().back()->setData(2);
+    settingsMenu->addAction(QString("Store default setting"));
+	settingsMenu->actions().back()->setData(3);
+    settingsMenu->addAction(QString("Load setting"));
+    settingsMenu->actions().back()->setData(4);
 
     blockLenMenu = menuBar.addMenu("Audio block size");
     for(unsigned int i = 0; i<numBlockLengths; i++) {
@@ -68,8 +80,11 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     channelWidget.setLimits(1, outDevice.numChans);
 
     inDeviceMenu = menuBar.addMenu("Input device");
-    outDeviceMenu = menuBar.addMenu("Output device");;
+    outDeviceMenu = menuBar.addMenu("Output device");
     this->deviceMenuUpdate();
+
+    copyMenu = menuBar.addMenu("Copy to Channel");
+    this->copyMenuUpdate();
 
     inOutButton.setParent(this);
     inOutButton.move(0.25*uiElementWidth, 0.075*uiElementWidth+0.05*height);
@@ -77,18 +92,11 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     inOutButton.setIconSize(inOutButton.size()*0.95);
     inOutButton.setIcon(inOutIcon);
 
-    tenTimesButton.setParent(this);
-    tenTimesButton.move(0.25*uiElementWidth, 0.525*uiElementWidth+0.05*height);
-    tenTimesButton.resize(0.5*uiElementWidth, 0.4*uiElementHeight);
-    tenTimesButton.setCheckable(true);
-    tenTimesButton.setText("10x");
-
     channelWidget.setParent(this);
     channelWidget.move(1.0*uiElementWidth, 0.05*height);
     channelWidget.resize(uiElementWidth, uiElementHeight);
     channelWidget.setLabel(QString("Channel Nr."));
     channelWidget.setUnit(QString(""));
-    channelWidget.setLimits(1, 1);
     channelWidget.setStepSize(1.0);
     channelWidget.setValue(1);
     channelWidget.setReadOnly(true);
@@ -193,7 +201,6 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     statusTxt.setParent(this);
     statusTxt.move(0.1*uiElementWidth, 3.1*uiElementHeight+0.05*height);
     statusTxt.resize(3.9*uiElementWidth, 1.53*uiElementHeight);
-    statusTxt.setText(QString("Welcome to virtualDSP!"));
     statusTxt.setPalette(this->palette());
     statusTxt.viewport()->setAutoFillBackground(false);
     statusTxt.setReadOnly(true);
@@ -204,7 +211,6 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     this->updateEQWidgets();
 
     connect(&inOutButton, SIGNAL (clicked()), this, SLOT(inOutButtonHandle()));
-    connect(&tenTimesButton, SIGNAL (clicked()), this, SLOT(tenTimesButtonHandle()));
     connect(&channelWidget, SIGNAL (valueChanged(double)), this, SLOT(channelWidgetHandle(double)));
 
     connect(&eqNrWidget, SIGNAL (valueChanged(double)), this, SLOT(eqNrWidgetHandle(double)));
@@ -216,12 +222,27 @@ MainWindow::MainWindow(int width, int height, QWidget *parent)
     connect(&limitRelWidget, SIGNAL (valueChanged(double)), this, SLOT(limitRelWidgetHandle(double)));
     connect(&limitMakeupWidget, SIGNAL (valueChanged(double)), this, SLOT(limitMakeupWidgetHandle(double)));
 
-    if (blockLenMenu != nullptr && hostApiMenu != nullptr && inDeviceMenu != nullptr && outDeviceMenu != nullptr) {
-		connect(blockLenMenu, SIGNAL(triggered(QAction*)), this, SLOT(blockLenMenuHandle(QAction*)));
-		connect(hostApiMenu, SIGNAL(triggered(QAction*)), this, SLOT(hostApiMenuHandle(QAction*)));
-		connect(inDeviceMenu, SIGNAL(triggered(QAction*)), this, SLOT(inDeviceMenuHandle(QAction*)));
-		connect(outDeviceMenu, SIGNAL(triggered(QAction*)), this, SLOT(outDeviceMenuHandle(QAction*)));
+    if (settingsMenu != nullptr) {
+    	connect(settingsMenu, SIGNAL(triggered(QAction*)), this, SLOT(settingsMenuHandle(QAction*)));
     }
+    if (blockLenMenu != nullptr) {
+    	connect(blockLenMenu, SIGNAL(triggered(QAction*)), this, SLOT(blockLenMenuHandle(QAction*)));
+	}
+    if (hostApiMenu != nullptr) {
+		connect(hostApiMenu, SIGNAL(triggered(QAction*)), this, SLOT(hostApiMenuHandle(QAction*)));
+    }
+    if (inDeviceMenu != nullptr) {
+		connect(inDeviceMenu, SIGNAL(triggered(QAction*)), this, SLOT(inDeviceMenuHandle(QAction*)));
+    }
+	if (outDeviceMenu != nullptr) {
+		connect(outDeviceMenu, SIGNAL(triggered(QAction*)), this, SLOT(outDeviceMenuHandle(QAction*)));
+	}
+	if (copyMenu != nullptr) {
+		connect(copyMenu, SIGNAL(triggered(QAction*)), this, SLOT(copyMenuHandle(QAction*)));
+	}
+
+	this->loadParams("default_params.vdsp");
+	statusTxt.setText(QString("Welcome to virtualDSP!"));
 }
 
 void MainWindow::inOutButtonHandle() {
@@ -229,7 +250,7 @@ void MainWindow::inOutButtonHandle() {
 
     if (!streamFlag) {
         inOutButton.setIcon(pauseIcon);
-        resetRtIO();
+        updateRtIO();
     }
     else {
         inOutButton.setIcon(inOutIcon);
@@ -239,18 +260,6 @@ void MainWindow::inOutButtonHandle() {
         }
     }
     streamFlag = !streamFlag;
-}
-
-void MainWindow::tenTimesButtonHandle() {
-    if (tenTimesButton.isChecked()) {
-        eqGainWidget.setStepSize(5.0);
-        eqFreqWidget.setStepSize(1.1);
-        eqQFactWidget.setStepSize(0.1);
-    } else {
-        eqGainWidget.setStepSize(0.5);
-        eqFreqWidget.setStepSize(1.01);
-        eqQFactWidget.setStepSize(0.01);
-    }
 }
 
 void MainWindow::plotUpdate() {
@@ -282,22 +291,85 @@ void MainWindow::deviceMenuUpdate() {
 		outDeviceMenu->clear();
 	}
     for(unsigned int i = 0; i<outDevices.size(); i++) {
-    	if (inDevices.at(i).hostAPI == hostAPI) {
+    	if (outDevices.at(i).hostAPI == hostAPI) {
 			outDeviceMenu->addAction(QString::fromStdString(outDevices.at(i).name));
 			outDeviceMenu->actions().back()->setData(i);
     	}
     }
 }
 
+void MainWindow::copyMenuUpdate() {
+	if (copyMenu != nullptr) {
+		copyMenu->clear();
+	}
+	for(unsigned int i = 0; i<outDevice.numChans; i++) {
+		copyMenu->addAction(QString::number(i+1));
+		copyMenu->actions().back()->setData(i);
+	}
+}
+
+void MainWindow::settingsMenuHandle(QAction *currentAction) {
+	int caseVal = currentAction->data().toInt();
+	QString tmpTxt = currentAction->text();
+
+	if (caseVal==0) {
+		stereoLockFlag = !stereoLockFlag;
+		if (stereoLockFlag) {
+			statusTxt.setText(QString("Activated stereo lock."));
+		} else {
+			statusTxt.setText(QString("Deactivated stereo lock."));
+		}
+	}
+
+	if (caseVal==1) {
+		tenTimesFlag = !tenTimesFlag;
+		if (tenTimesFlag) {
+			eqGainWidget.setStepSize(5.0);
+			eqFreqWidget.setStepSize(1.1);
+			eqQFactWidget.setStepSize(0.1);
+			currentAction->setText(tmpTxt.replace("(inactive)", "(active)"));
+			statusTxt.setText(QString("Activated ten fold step size."));
+		} else {
+			eqGainWidget.setStepSize(0.5);
+			eqFreqWidget.setStepSize(1.01);
+			eqQFactWidget.setStepSize(0.01);
+			currentAction->setText(tmpTxt.replace("(active)", "(inactive)"));
+			statusTxt.setText(QString("Deactivated ten fold step size."));
+		}
+	}
+
+	if (caseVal==2) {
+		this->storeParams("params.vdsp");
+	}
+
+	if (caseVal==3) {
+		this->storeParams("default_params.vdsp");
+	}
+
+	if (caseVal==4) {
+		this->loadParams("params.vdsp");
+	}
+}
+
 void MainWindow::blockLenMenuHandle(QAction *currentAction) {
     blockLenIO = currentAction->data().toInt();
     if (streamFlag) {
-        resetRtIO();
+    	inOutButtonHandle();
     }
 }
 
 void MainWindow::hostApiMenuHandle(QAction *currentAction) {
     hostAPI = hostAPIs.at(currentAction->data().toInt());
+    if (streamFlag) {
+    	inOutButtonHandle();
+    }
+    for (int i=0; i<inDevices.size() && inDevice.hostAPI != hostAPI; i++) {
+    	inDevice = inDevices.at(i);
+    }
+    for (int i=0; i<outDevices.size() && outDevice.hostAPI != hostAPI; i++) {
+    	outDevice = outDevices.at(i);
+    }
+
     this->deviceMenuUpdate();
     statusTxt.setText(QString("Changed host API to ") + QString::fromStdString(hostAPI));
 }
@@ -306,7 +378,7 @@ void MainWindow::inDeviceMenuHandle(QAction *currentAction) {
     inDevice = inDevices.at(currentAction->data().toInt());
     this->paramReset();
     if (streamFlag) {
-        resetRtIO();
+    	inOutButtonHandle();
     }
     statusTxt.setText(QString("Changed input device to ") + QString::fromStdString(inDevice.name));
 }
@@ -317,16 +389,34 @@ void MainWindow::outDeviceMenuHandle(QAction *currentAction) {
     channelWidget.setValue(1);
     this->paramReset();
     if (streamFlag) {
-        resetRtIO();
+        updateRtIO();
     }
     statusTxt.setText(QString("Changed output device to ") + QString::fromStdString(outDevice.name));
+}
+
+void MainWindow::copyMenuHandle(QAction *currentAction) {
+	int copyChan = currentAction->data().toInt();
+	numEQs.at(copyChan) = numEQs.at(actChan);
+	this->resizeEQParams(copyChan);
+	for (unsigned int i=0; i<numEQs.at(copyChan); i++) {
+		gain.at(copyChan).at(i) = gain.at(actChan).at(i);
+		freq.at(copyChan).at(i) = freq.at(actChan).at(i);
+		QFact.at(copyChan).at(i) = QFact.at(actChan).at(i);
+		type.at(copyChan).at(i) = type.at(actChan).at(i);
+	}
+	thres.at(copyChan) = thres.at(actChan);
+	makeup.at(copyChan) = makeup.at(actChan);
+	relTime.at(copyChan) = relTime.at(actChan);
+	this->updateParamsRtIO();
+	statusTxt.setText(QString("Copied settings from channel <") + QString::number(actChan+1)
+					+ QString("> to <") + QString::number(copyChan+1) + QString(">."));
 }
 
 void MainWindow::channelWidgetHandle(double chanNr) {
     if (actChan<outDevice.numChans) {
         actChan = (unsigned int) chanNr-1;
         if (gain.at(actChan).size() < numEQs.at(actChan)) {
-            this->resizeActEQParams();
+            this->resizeEQParams(actChan);
         }
         this->updateLimiterWidgets();
         this->updateEQWidgets();
@@ -341,14 +431,14 @@ void MainWindow::eqNrWidgetHandle(double eqNr) {
     actEQ.at(actChan) = (unsigned int) eqNr-1;
     if (actEQ.at(actChan) >= numEQs.at(actChan)) {
         numEQs.at(actChan) = actEQ.at(actChan)+1;
-        this->resizeActEQParams();
+        this->resizeEQParams(actChan);
         if (rtIO != nullptr) {
             rtIO->setNumEQs(actChan, numEQs.at(actChan));
         }
     } else if ((int32_t)actEQ.at(actChan) < (int32_t)numEQs.at(actChan)-1
     		&& gain.at(actChan).back() == 0.0 && type.at(actChan).back() > 4) {
         numEQs.at(actChan) = actEQ.at(actChan)+1;
-        this->resizeActEQParams();
+        this->resizeEQParams(actChan);
         if (rtIO != nullptr) {
             rtIO->setNumEQs(actChan, numEQs.at(actChan));
         }
@@ -430,7 +520,7 @@ void MainWindow::limitRelWidgetHandle(double relTime) {
                       + QString(" to ") + QString::number(relTime));
 }
 
-void MainWindow::resetRtIO() {
+void MainWindow::updateRtIO() {
     if (rtIO != nullptr) {
         delete rtIO;
         rtIO = nullptr;
@@ -438,18 +528,7 @@ void MainWindow::resetRtIO() {
     try {
         rtIO = new CppRTA(inDevice, outDevice, blockLenIO, fs);
         rtIO->startStream();
-        for (unsigned int i=0; i<outDevice.numChans; i++) {
-            rtIO->setNumEQs(i, numEQs.at(i));
-            for (unsigned int j=0; j<numEQs.at(i); j++) {
-                rtIO->setGain(i, j, gain.at(i).at(j));
-                rtIO->setFreq(i, j, freq.at(i).at(j));
-                rtIO->setQFactor(i, j, QFact.at(i).at(j));
-                rtIO->setType(i, j, type.at(i).at(j));
-            }
-            rtIO->setThreshold(i, thres.at(i));
-            rtIO->setThreshold(i, makeup.at(i));
-            rtIO->setThreshold(i, relTime.at(i));
-        }
+        this->updateParamsRtIO();
         statusTxt.append("\nAudio roundtrip started.");
     } catch (const std::exception& err) {
         statusTxt.append(QString("\nAudio initialization error:\n")+QString(err.what())
@@ -499,7 +578,7 @@ void MainWindow::resizeChannelParams() {
         freq.resize(outDevice.numChans);
         QFact.resize(outDevice.numChans);
         type.resize(outDevice.numChans);
-        this->resizeActEQParams();
+        this->resizeEQParams(actChan);
     }
 }
 
@@ -512,17 +591,18 @@ void MainWindow::resizeAllEQParams() {
     }
 }
 
-void MainWindow::resizeActEQParams() {
-    unsigned int numEQ = numEQs.at(actChan);
-    gain.at(actChan).resize(numEQ, 0.0);
-    freq.at(actChan).resize(numEQ, 1000.0);
-    QFact.at(actChan).resize(numEQ, 0.71);
-    type.at(actChan).resize(numEQ, 5);
+void MainWindow::resizeEQParams(int chanNr) {
+    unsigned int numEQ = numEQs.at(chanNr);
+    gain.at(chanNr).resize(numEQ, 0.0);
+    freq.at(chanNr).resize(numEQ, 1000.0);
+    QFact.at(chanNr).resize(numEQ, 0.71);
+    type.at(chanNr).resize(numEQ, 5);
 }
 
-void MainWindow::updateParams() {
+void MainWindow::updateParamsRtIO() {
     if (rtIO != nullptr) {
         for (unsigned int i=0; i<outDevice.numChans; i++) {
+        	rtIO->setNumEQs(i, numEQs.at(i));
             for (unsigned int j=0; j<numEQs.at(i); j++) {
                 rtIO->setGain(i, j, gain.at(i).at(j));
                 rtIO->setFreq(i, j, freq.at(i).at(j));
@@ -537,17 +617,21 @@ void MainWindow::updateParams() {
 }
 
 
-int MainWindow::storeParams() {
+int MainWindow::storeParams(const char* fileName) {
     uint32_t numChans, numEQsPerChan, tmpInt;
     double tmpDouble;
-    std::ofstream fStr("params.vdsp", std::ios::binary | std::ios::trunc);
+    QString tmpStr = QCoreApplication::applicationDirPath();
+	tmpStr.append(QString("/") + QString(fileName));
+	QByteArray tmpBA = tmpStr.toLatin1();
+	const char *filePath = tmpBA.data();
+    std::ofstream fStr(filePath, std::ios::binary | std::ios::trunc);
 
     if (fStr.good()) {
     	fStr.write((char*)&fs, sizeof(uint32_t));
     	fStr.write((char*)&outDevice.numChans, sizeof(uint32_t));
         for (uint32_t i=0; i<outDevice.numChans; i++) {
-        	numEQsPerChan = numEQs.at(actChan);
-        	fStr.write((char*)&numEQs.at(actChan), sizeof(uint32_t));
+        	numEQsPerChan = numEQs.at(i);
+        	fStr.write((char*)&numEQsPerChan, sizeof(uint32_t));
             for (uint32_t j=0; j<numEQsPerChan; j++) {
                 tmpDouble = gain.at(i).at(j);
                 fStr.write((char*)&tmpDouble, sizeof(double));
@@ -565,16 +649,22 @@ int MainWindow::storeParams() {
             tmpDouble = relTime.at(i);
             fStr.write((char*)&tmpDouble, sizeof(double));
         }
+        statusTxt.setText(QString("Successfully stored current parameters in <") + tmpStr + QString(">."));
         return 0;
     } else {
-        return -1;
+    	statusTxt.setText(QString("Error: Could not open and write to <") + tmpStr + QString(">."));
+    	return -1;
     }
 }
 
-int MainWindow::readParams() {
+int MainWindow::loadParams(const char* fileName) {
     uint32_t tmpInt, numOutChansFile, numEQsPerChanFile;
     double tmpDouble;
-    std::ifstream fStr("params.vdsp", std::ios::binary);
+    QString tmpStr = QCoreApplication::applicationDirPath();
+	tmpStr.append(QString("/") + QString(fileName));
+	QByteArray tmpBA = tmpStr.toLatin1();
+	const char *filePath = tmpBA.data();
+    std::ifstream fStr(filePath, std::ios::binary);
 
     this->paramReset();
     if (fStr.good()) {
@@ -582,8 +672,8 @@ int MainWindow::readParams() {
         fStr.read((char*)&numOutChansFile, sizeof(uint32_t));
         for (uint32_t i=0; i<outDevice.numChans && i<numOutChansFile; i++) {
         	fStr.read((char*)&numEQsPerChanFile, sizeof(uint32_t));
-        	numEQs.at(actChan) = numEQsPerChanFile;
-        	this->resizeActEQParams();
+        	numEQs.at(i) = numEQsPerChanFile;
+        	this->resizeEQParams(i);
             for (uint32_t j=0; j<numEQsPerChanFile; j++) {
                 fStr.read((char*)&tmpDouble, sizeof(double));
                 gain.at(i).at(j) = tmpDouble;
@@ -601,13 +691,16 @@ int MainWindow::readParams() {
             fStr.read((char*)&tmpDouble, sizeof(double));
             relTime.at(i) = tmpDouble;
         }
-        this->updateParams();
+        this->updateParamsRtIO();
         this->updateLimiterWidgets();
 		this->updateEQWidgets();
-        return 0;
-    } else {
-        return -1;
-    }
+		this->plotUpdate();
+		statusTxt.setText(QString("Successfully loaded parameters in <") + tmpStr + QString(">."));
+		return 0;
+	} else {
+		statusTxt.setText(QString("Error: Could not open and read from <") + tmpStr + QString(">."));
+		return -1;
+        }
 }
 
 

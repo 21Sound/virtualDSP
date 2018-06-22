@@ -9,7 +9,7 @@ Modified by Hagen Jaeger, 22.09.2014, now with all cookbook-variations of a BiQu
 (LoPass, HiPass, LoShelv, HiShelf, pEQ, ...). Modification is based on Joerg Bitzers 
 'filterdesign.m', i.e. RBJ Cookbook, for MATLAB.
 
-Version 1.0.1 (debuuged and tested, 22.09.2014).
+Version 1.0.1 (debugged and tested, 22.09.2014).
 \*------------------------------------------------------------------*/
 
 #include "mainwindow.h"

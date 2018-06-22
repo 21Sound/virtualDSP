@@ -21,12 +21,13 @@ public:
 
 private slots:
     void inOutButtonHandle();
-    void tenTimesButtonHandle();
     void plotUpdate();
+    void settingsMenuHandle(QAction *currentAction);
     void blockLenMenuHandle(QAction *currentAction);
     void hostApiMenuHandle(QAction *currentAction);
     void inDeviceMenuHandle(QAction *currentAction);
     void outDeviceMenuHandle(QAction *currentAction);
+    void copyMenuHandle(QAction *currentAction);
 
     void channelWidgetHandle(double chanNr);
     void eqNrWidgetHandle(double eqNr);
@@ -39,17 +40,18 @@ private slots:
     void limitRelWidgetHandle(double relTime);
 
 private:
-    void resetRtIO();
+    void updateRtIO();
     void paramReset();
     void resizeChannelParams();
     void resizeAllEQParams();
-    void resizeActEQParams();
-    void updateParams();
+    void resizeEQParams(int chanNr);
+    void updateParamsRtIO();
     void updateEQWidgets();
     void updateLimiterWidgets();
     void deviceMenuUpdate();
-    int storeParams();
-    int readParams();
+    void copyMenuUpdate();
+    int storeParams(const char* fileName);
+    int loadParams(const char* fileName);
 
     QCustomPlot tfPlot;
     QVector<double> xPlot, yPlot;
@@ -65,7 +67,7 @@ private:
     QTextEdit statusTxt;
 
     QMenuBar menuBar;
-    QMenu *blockLenMenu, *hostApiMenu, *inDeviceMenu, *outDeviceMenu;
+    QMenu *settingsMenu, *blockLenMenu, *hostApiMenu, *inDeviceMenu, *outDeviceMenu, *copyMenu;
 
     CppRTA *rtIO;
     std::vector<unsigned int> actEQ, numEQs;
@@ -77,7 +79,7 @@ private:
     deviceContainerRTA inDevice, outDevice;
 
     unsigned int blockLenIO, fs, actChan;
-    bool streamFlag;
+    bool streamFlag, tenTimesFlag, stereoLockFlag;
 };
 
 #endif // MAINWINDOW_H

@@ -1,6 +1,5 @@
 #include "paramWidget.h"
 #include <QCoreApplication>
-#include <QFileInfo>
 #include <QWheelEvent>
 
 QParamEdit::QParamEdit(QWidget *parent)
@@ -18,6 +17,7 @@ void QParamEdit::editingFinishedHandle() {
 
 void QParamEdit::focusInEvent(QFocusEvent *e){
   QLineEdit::focusInEvent(e);
+  this->oldText = this->text();
   this->setText(QString());
 }
 
@@ -30,7 +30,7 @@ void QParamEdit::focusOutEvent(QFocusEvent *e)
   if (successFlag) {
       emit paramChanged(value);
   } else {
-      this->setText(actText);
+      this->setText(this->oldText);
   }
   QLineEdit::focusOutEvent(e);
 }
@@ -42,13 +42,11 @@ paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double 
 
     QPalette tmpPal;
 
-    QFileInfo currentPath(QCoreApplication::applicationFilePath());
-
-    QString tmpStr = currentPath.absolutePath();
+    QString tmpStr = QCoreApplication::applicationDirPath();
     tmpStr.append("/symbols/plus.png");
     plusIcon.addFile(tmpStr);
 
-    tmpStr = currentPath.absolutePath();
+    tmpStr = QCoreApplication::applicationDirPath();
     tmpStr.append("/symbols/minus.png");
     minusIcon.addFile(tmpStr);
 

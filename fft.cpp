@@ -44,14 +44,13 @@ static double *wtable = NULL;
 
 //------------------------------------------------------------------------------
 
-void set_twiddle_table(int max_nfft)
+int set_twiddle_table(int max_nfft)
 {
     int i, nfft;
 
     if (ilog2(max_nfft) == 0)
     {
-        printf("Error: number of FFT bins must be a power of two (%d)\n", max_nfft);
-        return;
+        return -1; //"Error: number of FFT bins must be a power of two (%d)\n"
     }
 
     // real FFT by half-length complex FFT
@@ -75,6 +74,8 @@ void set_twiddle_table(int max_nfft)
     {
         wtable[i+nfft+1] = cos(i * M_PI / nfft);
     }
+
+    return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -120,7 +121,7 @@ void phase_rad(complex_float32 *input, float *result, int n)
 
 //------------------------------------------------------------------------------
 
-void fft(float *input, complex_float32 *spectrum, int n)
+int fft(float *input, complex_float32 *spectrum, int n)
 {
     int i, ig, k, l, ngroups, nbutterflies, j, nfft, nstride;
     float tr, ti, rs, is, rd, id, rp, ip, ci, cj;
@@ -131,12 +132,11 @@ void fft(float *input, complex_float32 *spectrum, int n)
     nfft = n/2;
 
     if (nfft == 0 || input == NULL || spectrum == NULL)
-        return;
+        return -1;
 
     if (ilog2(n) == 0)
     {
-        printf("Error: number of FFT bins must be a power of two (%d)\n", n);
-        return;
+        return -2; //"Error: number of FFT bins must be a power of two (%d)\n"
     }
 
     // create new table if missing
@@ -171,8 +171,7 @@ void fft(float *input, complex_float32 *spectrum, int n)
 
     if (nstride < 0)
     {
-        printf("Error: invalid table size: %d (nfft: %d)\n", 2*k, 2*nfft);
-        return;
+        return -3; //"Error: invalid table size: %d (nfft: %d)\n"
     }
 
     // Copy memory if not in-place
@@ -300,11 +299,13 @@ void fft(float *input, complex_float32 *spectrum, int n)
         x[i].im = (ip + id);
         x[j].im = (ip - id);
     }
+
+    return 0;
 }
 
 //------------------------------------------------------------------------------
 
-void ifft(complex_float32 *spectrum, float *output, int n)
+int ifft(complex_float32 *spectrum, float *output, int n)
 {
     int i, ig, k, l, ngroups, nbutterflies, j, nfft, nstride;
     float t0, tn, rs, is, rd, id, rp, ip, ci, cj, norm;
@@ -315,12 +316,11 @@ void ifft(complex_float32 *spectrum, float *output, int n)
     nfft = n/2;
 
     if (nfft == 0 || spectrum == NULL || output == NULL)
-        return;
+        return -1;
 
     if (ilog2(n) == 0)
     {
-        printf("Error: number of FFT bins must be a power of two (%d)\n", n);
-        return;
+        return -2; //"Error: number of FFT bins must be a power of two (%d)\n"
     }
 
     // create new table if missing
@@ -355,8 +355,7 @@ void ifft(complex_float32 *spectrum, float *output, int n)
 
     if (nstride < 0)
     {
-        printf("Error: invalid table size: %d (nfft: %d)\n", 2*k, 2*nfft);
-        return;
+        return -3; //"Error: invalid table size: %d (nfft: %d)\n"
     }
 
     x = (complex_float32 *) output;
@@ -485,6 +484,8 @@ void ifft(complex_float32 *spectrum, float *output, int n)
     {
         output[i] *= norm;
     }
+
+    return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -530,7 +531,7 @@ void phase_rad_double(complex_float64 *input, double *result, int n)
 
 //------------------------------------------------------------------------------
 
-void fft_double(double *input, complex_float64 *spectrum, int n)
+int fft_double(double *input, complex_float64 *spectrum, int n)
 {
     int i, ig, k, l, ngroups, nbutterflies, j, nfft, nstride;
     double tr, ti, rs, is, rd, id, rp, ip, ci, cj;
@@ -540,12 +541,11 @@ void fft_double(double *input, complex_float64 *spectrum, int n)
     nfft = n/2;
 
     if (nfft == 0 || input == NULL || spectrum == NULL)
-        return;
+        return -1;
 
     if (ilog2(n) == 0)
     {
-        printf("Error: number of FFT bins must be a power of two (%d)\n", n);
-        return;
+        return -2; //"Error: number of FFT bins must be a power of two (%d)\n"
     }
 
     // create new table if missing
@@ -580,8 +580,7 @@ void fft_double(double *input, complex_float64 *spectrum, int n)
 
     if (nstride < 0)
     {
-        printf("Error: invalid table size: %d (nfft: %d)\n", 2*k, 2*nfft);
-        return;
+        return -3; //"Error: invalid table size: %d (nfft: %d)\n"
     }
 
     // Copy memory if not in-place
@@ -709,11 +708,13 @@ void fft_double(double *input, complex_float64 *spectrum, int n)
         x[i].im = (ip + id);
         x[j].im = (ip - id);
     }
+
+    return 0;
 }
 
 //------------------------------------------------------------------------------
 
-void ifft_double(complex_float64 *spectrum, double *output, int n)
+int ifft_double(complex_float64 *spectrum, double *output, int n)
 {
     int i, ig, k, l, ngroups, nbutterflies, j, nfft, nstride;
     double t0, tn, rs, is, rd, id, rp, ip, ci, cj, norm;
@@ -723,12 +724,11 @@ void ifft_double(complex_float64 *spectrum, double *output, int n)
     nfft = n/2;
 
     if (nfft == 0 || spectrum == NULL || output == NULL)
-        return;
+        return -1;
 
     if (ilog2(n) == 0)
     {
-        printf("Error: number of FFT bins must be a power of two (%d)\n", n);
-        return;
+        return -2; //"Error: number of FFT bins must be a power of two (%d)\n"
     }
 
     // create new table if missing
@@ -763,8 +763,7 @@ void ifft_double(complex_float64 *spectrum, double *output, int n)
 
     if (nstride < 0)
     {
-        printf("Error: invalid table size: %d (nfft: %d)\n", 2*k, 2*nfft);
-        return;
+        return -3; //"Error: invalid table size: %d (nfft: %d)\n"
     }
 
     x = (complex_float64 *) output;
@@ -893,6 +892,8 @@ void ifft_double(complex_float64 *spectrum, double *output, int n)
     {
         output[i] *= norm;
     }
+
+    return 0;
 }
 
 //------------------------------------------------------------------------------

@@ -19,12 +19,15 @@ public:
 signals:
   void paramChanged(double);
 
-private slots:
-	void editingFinishedHandle();
-
 protected:
   virtual void focusInEvent(QFocusEvent *e);
   virtual void focusOutEvent(QFocusEvent *e);
+
+private slots:
+	void editingFinishedHandle();
+
+private:
+	QString oldText;
 };
 
 class paramWidget : public QWidget {
