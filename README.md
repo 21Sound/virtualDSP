@@ -21,19 +21,17 @@ Functionality
 
 Start the program and choose yoour favourite combination of input/output devices. virtualDSP automatically sets the number of channel strips to the maximum number of output channels.
 
-At the moment, each channel is mapped by modulo logic to the outputs. e.g. if you have two inputs and 8 outputs, the mapping would be 1->1, 2->2, 1->3, 2->4, 1->5, 2->6, 1->7, 2->8.
+At the moment, each channel is mapped by modulo logic to the outputs. e.g. if you have two inputs and 8 outputs, the mapping would be 1 to 1, 2 to 2, 1 to 3, 2 to 4, 1 to 5, 2 to 6, 1 to 7, 2 to 8.
 
 Further functionalities that are planned to be implemented:
 - Delay
 - Channel mapping
 - Transfer function graph
 - Levelmeter
-- Channel linkage
 - ...
 
 Dependencies
 -----
-This project depends on Qt5, qcustomplot (Source files included) and portaudio (Win32/64 x86_64 releases included). Please ensure to install the appropriate libraries on a system-known path, so CMake can find them while configuring.
-
+This project depends on Qt5, qcustomplot (Source files included) and portaudio. Please ensure to install the appropriate libraries on a system-known path, so CMake can find them while configuring.
 
 If you have any questions, run into bugs, or have feature ideas, please feel free to contact me via email: hagenvontronje1@gmx.de

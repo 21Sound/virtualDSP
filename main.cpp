@@ -21,8 +21,8 @@ int main(int argc, char *argv[])
     int width = QApplication::desktop()->screenGeometry().width();
     int height = QApplication::desktop()->screenGeometry().height();
 
-    MainWindow mainWin(0.5*width, 0.6*height);
-    mainWin.move(width*0.25,height*0.2);
+    MainWindow mainWin(0.6*width, 0.6*height);
+    mainWin.move(width*0.2,height*0.1);
 
     mainWin.show();
 

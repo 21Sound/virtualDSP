@@ -17,9 +17,15 @@ CppRTA::CppRTA(deviceContainerRTA inDev, deviceContainerRTA outDev, uint32_t blo
         this->blockLen = 0x20;
     }
 
+    hiPass.resize(outDev.numChans);
+    loPass.resize(outDev.numChans);
     limiter.resize(outDev.numChans);
     EQ.resize(outDev.numChans);
     for (uint32_t i=0; i<outDev.numChans; i++) {
+    	hiPass.at(i).setSampleRate(fs);
+    	hiPass.at(i).setType(HIGHPASS);
+    	loPass.at(i).setSampleRate(fs);
+    	loPass.at(i).setType(LOWPASS);
         limiter.at(i).setSampleRate(fs);
         EQ.at(i).resize(1);
         EQ.at(i).at(0).setSampleRate(fs);
@@ -107,7 +113,7 @@ void CppRTA::stopStream() {
     Pa_Terminate();
 }
 
-int32_t CppRTA::duplexCallback(const void *inBuf, void *outBuf,
+int CppRTA::duplexCallback(const void *inBuf, void *outBuf,
                            unsigned long framesPerBuf,
                            const PaStreamCallbackTimeInfo* timeInfo,
                            PaStreamCallbackFlags statusFlag,
@@ -130,6 +136,8 @@ int32_t CppRTA::duplexCallback(const void *inBuf, void *outBuf,
         for (uint32_t j=0; j<obj->EQ[i].size(); j++) {
             obj->EQ[i][j].process(obj->outData[i]);
         }
+        obj->hiPass[i].process(obj->outData[i]);
+        obj->loPass[i].process(obj->outData[i]);
         obj->limiter[i].process(obj->outData[i]);
     }
 
@@ -141,7 +149,7 @@ int32_t CppRTA::duplexCallback(const void *inBuf, void *outBuf,
     return paContinue;
 }
 
-int32_t CppRTA::inCallback(const void *inBuf, void *outBuf,
+int CppRTA::inCallback(const void *inBuf, void *outBuf,
                            unsigned long framesPerBuf,
                            const PaStreamCallbackTimeInfo* timeInfo,
                            PaStreamCallbackFlags statusFlag,
@@ -160,7 +168,7 @@ int32_t CppRTA::inCallback(const void *inBuf, void *outBuf,
     return paContinue;
 }
 
-int32_t CppRTA::outCallback(const void *inBuf, void *outBuf,
+int CppRTA::outCallback(const void *inBuf, void *outBuf,
                            unsigned long framesPerBuf,
                            const PaStreamCallbackTimeInfo* timeInfo,
                            PaStreamCallbackFlags statusFlag,
@@ -176,6 +184,8 @@ int32_t CppRTA::outCallback(const void *inBuf, void *outBuf,
         for (uint32_t j=0; j<obj->EQ[i].size(); j++) {
             obj->EQ[i][j].process(obj->outData[i]);
         }
+        obj->hiPass[i].process(obj->outData[i]);
+        obj->loPass[i].process(obj->outData[i]);
         obj->limiter[i].process(obj->outData[i]);
     }
 
@@ -187,9 +197,8 @@ int32_t CppRTA::outCallback(const void *inBuf, void *outBuf,
     return paContinue;
 }
 
-int32_t CppRTA::getHostAPIs(std::vector<std::string> &apis) {
+int CppRTA::getHostAPIs(std::vector<std::string> &apis) {
     PaError paErr;
-    const PaDeviceInfo *paDevInfo;
     PaDeviceIndex numDevices;
     PaHostApiIndex numAPIs;
 
@@ -213,7 +222,7 @@ int32_t CppRTA::getHostAPIs(std::vector<std::string> &apis) {
 	return 0;
 }
 
-int32_t CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
+int CppRTA::getDevices(std::vector<deviceContainerRTA> &inDevices,
                            std::vector<deviceContainerRTA> &outDevices) {
     PaError paErr;
     const PaDeviceInfo *paDevInfo;
@@ -274,11 +283,14 @@ int CppRTA::getTransferFunction(std::vector<double> &tf, uint32_t chanID, uint32
         tf.resize(nfft/2+1, 0.0);
     }
 
+    returnID += hiPass.at(chanID).addTransferFunction(tf, nfft);
+    returnID += loPass.at(chanID).addTransferFunction(tf, nfft);
+
     for (uint32_t i=0; i<EQ.at(chanID).size(); i++) {
         returnID += EQ.at(chanID).at(i).addTransferFunction(tf, nfft);
     }
 
-	return 0;
+	return returnID;
 }
 
 CppRTA::~CppRTA(void) {

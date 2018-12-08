@@ -1,6 +1,7 @@
 #include "paramWidget.h"
 #include <QCoreApplication>
 #include <QWheelEvent>
+#include <cmath>
 
 QParamEdit::QParamEdit(QWidget *parent)
  : QLineEdit(parent){
@@ -38,7 +39,7 @@ void QParamEdit::focusOutEvent(QFocusEvent *e)
 paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double lowerLim,
                          double upperLim, QString label, QString unit, double precision, bool logFlag)
     : QWidget(parent), value(value), stepSize(stepSize), lowerLim(lowerLim), upperLim(upperLim),
-      unit(unit), actText(value+QString(" ")+unit), precision(1.0/precision), logFlag(logFlag) {
+      unit(unit), actText(value+QString(" ")+unit), precision(precision), logFlag(logFlag) {
 
     QPalette tmpPal;
 
@@ -57,10 +58,12 @@ paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double 
     minusButton.setParent(this);
     minusButton.setIcon(minusIcon);
     minusButton.setAutoRepeat(true);
+    minusButton.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     plusButton.setParent(this);
     plusButton.setIcon(plusIcon);
     plusButton.setAutoRepeat(true);
+    plusButton.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     valueField.setParent(this);
     valueField.setText(QString("0"));
@@ -68,11 +71,12 @@ paramWidget::paramWidget(QWidget *parent, double value, double stepSize, double 
     valueField.setAutoFillBackground(true);
     valueField.setReadOnly(false);
     valueField.setAlignment(Qt::AlignCenter);
+    valueField.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    layout.addWidget(&fieldLabel, 0, 0, 1, 2);
-    layout.addWidget(&minusButton, 1, 0, 1, 1);
-    layout.addWidget(&plusButton, 1, 1, 1, 1);
-    layout.addWidget(&valueField, 2, 0, 1, 2);
+    layout.addWidget(&fieldLabel, 0, 0, 1, 4);
+    layout.addWidget(&minusButton, 1, 0, 2, 2);
+    layout.addWidget(&plusButton, 1, 2, 2, 2);
+    layout.addWidget(&valueField, 3, 0, 2, 4);
     this->setLayout(&layout);
 
     tmpPal = valueField.palette();
@@ -93,7 +97,7 @@ void paramWidget::setValue(double value) {
     } else if (value>upperLim) {
         this->value = upperLim;
     } else {
-        this->value = ((float)((int)(value*precision))/precision);
+        this->value = (double)qRound(value/precision)*precision;
     }
     actText = QString::number(this->value) + QString(" ") + unit;
     valueField.setText(actText);

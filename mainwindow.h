@@ -3,8 +3,7 @@
 
 #include <QMainWindow>
 #include <QPushButton>
-#include <QTextEdit>
-#include <QGridLayout>
+#include <QPlainTextEdit>
 #include <vector>
 
 #include "qcustomplot.h"
@@ -22,8 +21,10 @@ public:
 private slots:
     void inOutButtonHandle();
     void plotUpdate();
+
     void settingsMenuHandle(QAction *currentAction);
     void blockLenMenuHandle(QAction *currentAction);
+    void sampleRateMenuHandle(QAction *currentAction);
     void hostApiMenuHandle(QAction *currentAction);
     void inDeviceMenuHandle(QAction *currentAction);
     void outDeviceMenuHandle(QAction *currentAction);
@@ -35,18 +36,20 @@ private slots:
     void eqFreqWidgetHandle(double freq);
     void eqQFactWidgetHandle(double QFact);
     void eqTypeWidgetHandle(double type);
+    void hiPassCharWidgetHandle(double charac);
+	void hiPassFreqWidgetHandle(double freq);
+	void hiPassOrdWidgetHandle(double ord);
+	void loPassCharWidgetHandle(double charac);
+	void loPassFreqWidgetHandle(double freq);
+	void loPassOrdWidgetHandle(double ord);
     void limitThresWidgetHandle(double thres);
     void limitMakeupWidgetHandle(double gain);
     void limitRelWidgetHandle(double relTime);
 
 private:
-    void updateRtIO();
-    void paramReset();
-    void resizeChannelParams();
-    void resizeAllEQParams();
-    void resizeEQParams(int chanNr);
-    void updateParamsRtIO();
+    void copyParams(CppRTA *oldInst, CppRTA *newInst);
     void updateEQWidgets();
+    void updateCutWidgets();
     void updateLimiterWidgets();
     void deviceMenuUpdate();
     void copyMenuUpdate();
@@ -57,28 +60,28 @@ private:
     QVector<double> xPlot, yPlot;
     QVector<complex_float64> complexFreqVec;
 
-    paramWidget channelWidget, eqNrWidget, eqGainWidget, eqFreqWidget, eqQFactWidget,
-                eqTypeWidget, limitThresWidget, limitMakeupWidget, limitRelWidget;
+    paramWidget channelWidget, hiPassTypeWidget, hiPassCharWidget, hiPassFreqWidget, hiPassOrdWidget, loPassTypeWidget,
+		loPassCharWidget, loPassFreqWidget, loPassOrdWidget, eqNrWidget, eqGainWidget, eqFreqWidget, eqQFactWidget,
+		eqTypeWidget, limitThresWidget, limitMakeupWidget, limitRelWidget;
 
-    QPushButton inOutButton, tenTimesButton;
+    QPushButton inOutButton;
 
     QIcon applicationIcon, inOutIcon, pauseIcon;
 
-    QTextEdit statusTxt;
+    QPlainTextEdit statusTxt;
 
     QMenuBar menuBar;
-    QMenu *settingsMenu, *blockLenMenu, *hostApiMenu, *inDeviceMenu, *outDeviceMenu, *copyMenu;
+    QMenu *settingsMenu, *blockLenMenu, *sampleRateMenu, *hostApiMenu, *inDeviceMenu,
+          *outDeviceMenu, *copyMenu;
 
     CppRTA *rtIO;
-    std::vector<unsigned int> actEQ, numEQs;
-    std::vector<double> thres, makeup, relTime;
-    std::vector< std::vector<double> > gain, freq, QFact, type;
+    std::vector<unsigned int> actEQ;
     std::vector<std::string> hostAPIs;
     std::vector<deviceContainerRTA> inDevices, outDevices;
     std::string hostAPI;
     deviceContainerRTA inDevice, outDevice;
 
-    unsigned int blockLenIO, fs, actChan;
+    uint32_t blockLenIO, fs, actChan;
     bool streamFlag, tenTimesFlag, stereoLockFlag;
 };
 

@@ -6,7 +6,6 @@
 #include <QLineEdit>
 #include <QGridLayout>
 #include <QEvent>
-#include <cmath>
 
 class QParamEdit : public QLineEdit
 {
@@ -45,12 +44,17 @@ public:
 
     void setValue(double value);
 
-    inline void setPrecision(double precision) {
-        this->precision = 1.0/precision;
+    inline int setPrecision(double precision) {
+        if (precision>0.0001 && precision<10000) {
+            this->precision = precision;
+            return 0;
+        } else {
+            return -1;
+        }
     }
 
     inline int setStepSize(double stepSize) {
-        if (stepSize>=0.0001 && stepSize<10000) {
+        if (stepSize>0.0001 && stepSize<10000) {
             this->stepSize=stepSize;
             return 0;
         } else {
@@ -60,6 +64,10 @@ public:
 
     inline void setLabel(QString str) {
         fieldLabel.setText(str);
+    }
+
+    inline void setValueText(QString str) {
+        valueField.setText(str);
     }
 
     inline void setUnit(QString str) {
